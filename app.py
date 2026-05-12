@@ -116,7 +116,11 @@ st.markdown("""
 # Barre Latérale (Sidebar)
 # -----------------------------------------------------------------------------
 with st.sidebar:
-    st.markdown("### 🛡️ Sentient AI")
+    try:
+        st.image("assets/logo.png", width=120)
+    except:
+        pass
+    st.markdown("### Sentient AI")
     st.markdown("<p style='color:#a1a1aa; font-size:0.85rem; margin-top:-10px;'>Moteur PTaaS 100% Local</p>", unsafe_allow_html=True)
     st.markdown("---")
     
