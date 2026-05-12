@@ -1,10 +1,10 @@
-# 🛡️ VulnShield AI
+# 🛡️ Sentient AI
 
-**VulnShield AI** est une plateforme d'audit de sécurité automatisée (PTaaS - Penetration Testing as a Service), propulsée par une architecture d'Agents d'Intelligence Artificielle (CrewAI) fonctionnant à **100% en local** (Ollama).
+**Sentient AI** est une plateforme d'audit de sécurité automatisée (PTaaS - Penetration Testing as a Service), propulsée par une architecture d'Agents d'Intelligence Artificielle (CrewAI) fonctionnant à **100% en local** (Ollama).
 
 Elle combine la puissance de découverte réseau de **Nmap** et de **Nuclei** avec les capacités de raisonnement de modèles LLM de dernière génération (ex: Llama 3) pour générer des rapports de pentest exécutifs et sans faux positifs.
 
-![VulnShield AI](https://img.shields.io/badge/Status-Production%20Ready-success)
+![Sentient AI](https://img.shields.io/badge/Status-Production%20Ready-success)
 ![LLM](https://img.shields.io/badge/AI-Ollama%20%7C%20Llama%203-blue)
 
 ## 🚀 Fonctionnalités Principales
@@ -23,7 +23,7 @@ Elle combine la puissance de découverte réseau de **Nmap** et de **Nuclei** av
 Sur une machine Debian/Ubuntu avec accès Internet, tapez simplement cette commande pour installer l'application complète, configurer les dépendances (Nmap, Nuclei, Python), et installer le modèle IA local :
 
 ```bash
-curl -sL https://raw.githubusercontent.com/VOTRE_NOM_GITHUB/vulnshield-ai/main/install.sh | sudo bash
+curl -sL https://raw.githubusercontent.com/VOTRE_NOM_GITHUB/sentient-ai/main/install.sh | sudo bash
 ```
 
 Une fois installé, l'application est accessible depuis n'importe quel navigateur à l'adresse :
@@ -38,7 +38,7 @@ Une fois installé, l'application est accessible depuis n'importe quel navigateu
 La cybersécurité évolue vite. Pour mettre à jour l'application, les templates de failles 0-day de Nuclei, et le modèle d'IA, exécutez le script de mise à jour inclus :
 
 ```bash
-sudo /opt/vulnshield/update.sh
+sudo /opt/sentient/update.sh
 ```
 
 ---
@@ -50,8 +50,8 @@ Si vous souhaitez faire tourner le code manuellement sans le script d'installati
 1. Assurez-vous d'avoir installé Nmap, Nuclei, Python 3.10+ et Ollama.
 2. Clonez ce dépôt :
 ```bash
-git clone https://github.com/VOTRE_NOM_GITHUB/vulnshield-ai.git
-cd vulnshield-ai
+git clone https://github.com/VOTRE_NOM_GITHUB/sentient-ai.git
+cd sentient-ai
 ```
 3. Créez votre environnement et installez les prérequis :
 ```bash

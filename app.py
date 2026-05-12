@@ -15,7 +15,7 @@ import defectdojo
 init_db()
 
 st.set_page_config(
-    page_title="VulnShield AI | SOC",
+    page_title="Sentient AI | SOC",
     page_icon="🛡️",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -116,7 +116,7 @@ st.markdown("""
 # Barre Latérale (Sidebar)
 # -----------------------------------------------------------------------------
 with st.sidebar:
-    st.markdown("### 🛡️ VulnShield AI")
+    st.markdown("### 🛡️ Sentient AI")
     st.markdown("<p style='color:#a1a1aa; font-size:0.85rem; margin-top:-10px;'>Moteur PTaaS 100% Local</p>", unsafe_allow_html=True)
     st.markdown("---")
     
@@ -393,7 +393,7 @@ elif menu == "⚡ Lancer un Audit" or st.session_state.get('force_menu') == "⚡
             col_dl, col_dojo = st.columns(2)
             with col_dl:
                 with open(pdf_filename, "rb") as f:
-                    st.download_button("📥 Télécharger le Rapport d'Audit Exécutif", f, file_name=f"VulnShield_Report_{timestamp}.pdf", mime="application/pdf", type="primary", use_container_width=True)
+                    st.download_button("📥 Télécharger le Rapport d'Audit Exécutif", f, file_name=f"Sentient_Report_{timestamp}.pdf", mime="application/pdf", type="primary", use_container_width=True)
             
             with col_dojo:
                 if st.button("☁️ Pousser vers DefectDojo", use_container_width=True):

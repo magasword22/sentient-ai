@@ -1,18 +1,18 @@
 #!/bin/bash
 # =============================================================================
-# VulnShield AI - Script de Mise à Jour
+# Sentient AI - Script de Mise à Jour
 # =============================================================================
 
 set -e
 
-APP_DIR="/opt/vulnshield"
+APP_DIR="/opt/sentient"
 
 echo "====================================================="
-echo "🔄 Mise à jour de VulnShield AI"
+echo "🔄 Mise à jour de Sentient AI"
 echo "====================================================="
 
 if [ "$EUID" -ne 0 ]; then 
-  echo "[!] Veuillez exécuter ce script en tant que root (sudo vulnshield-update)"
+  echo "[!] Veuillez exécuter ce script en tant que root (sudo sentient-update)"
   exit 1
 fi
 
