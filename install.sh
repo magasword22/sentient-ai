@@ -73,12 +73,68 @@ pip install --upgrade pip
 pip install setuptools<70
 pip install -r requirements.txt
 
-# Création d'un exécutable rapide
+# Création d'un exécutable CLI (Gestionnaire)
 cat << 'EOF' > /usr/local/bin/sentient
 #!/bin/bash
-cd /opt/sentient
-source venv/bin/activate
-streamlit run app.py --server.port 8501 --server.address 0.0.0.0
+
+COMMAND=$1
+
+function show_help() {
+    echo "🛡️ Sentient AI - CLI Manager"
+    echo "Usage: sentient [commande]"
+    echo ""
+    echo "Commandes :"
+    echo "  start   : Démarrer l'application en tâche de fond"
+    echo "  stop    : Arrêter l'application"
+    echo "  restart : Redémarrer l'application"
+    echo "  status  : Voir si l'application tourne"
+    echo "  logs    : Afficher les logs en temps réel (Ctrl+C pour quitter)"
+    echo "  update  : Mettre à jour l'application et les modèles"
+    echo "  run     : Lancer l'application dans ce terminal (Mode Debug)"
+    echo ""
+}
+
+if [ -z "$COMMAND" ] || [ "$COMMAND" == "help" ]; then
+    show_help
+    exit 0
+fi
+
+case $COMMAND in
+    start)
+        echo "[*] Démarrage de Sentient AI..."
+        sudo systemctl start sentient
+        echo "[+] Service démarré. (http://localhost:8501)"
+        ;;
+    stop)
+        echo "[*] Arrêt de Sentient AI..."
+        sudo systemctl stop sentient
+        echo "[-] Service arrêté."
+        ;;
+    restart)
+        echo "[*] Redémarrage..."
+        sudo systemctl restart sentient
+        echo "[+] Service redémarré."
+        ;;
+    status)
+        sudo systemctl status sentient --no-pager
+        ;;
+    logs)
+        sudo journalctl -u sentient -f
+        ;;
+    update)
+        sudo /opt/sentient/update.sh
+        ;;
+    run)
+        cd /opt/sentient
+        source venv/bin/activate
+        streamlit run app.py --server.port 8501 --server.address 0.0.0.0
+        ;;
+    *)
+        echo "[!] Commande inconnue: $COMMAND"
+        show_help
+        exit 1
+        ;;
+esac
 EOF
 
 chmod +x /usr/local/bin/sentient
