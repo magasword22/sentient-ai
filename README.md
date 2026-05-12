@@ -52,7 +52,7 @@ Si vous souhaitez faire tourner le code manuellement sans le script d'installati
 1. Assurez-vous d'avoir installé Nmap, Nuclei, Python 3.10+ et Ollama.
 2. Clonez ce dépôt :
 ```bash
-git clone https://github.com/VOTRE_NOM_GITHUB/sentient-ai.git
+git clone https://github.com/magasword22/sentient-ai.git
 cd sentient-ai
 ```
 3. Créez votre environnement et installez les prérequis :
