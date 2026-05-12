@@ -5,12 +5,13 @@ __pycache__/
 
 # Bases de données locales
 audits.db
-chroma_db/
+rag_db/
 
 # Fichiers temporaires de scan
 live_targets.txt
 nuclei_results.json
 rapport_brut.md
+nohup.out
 
 # Rapports générés
 reports/
