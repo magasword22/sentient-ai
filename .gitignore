@@ -1,0 +1,23 @@
+# Environnement Python
+venv/
+__pycache__/
+*.pyc
+
+# Bases de données locales
+audits.db
+chroma_db/
+
+# Fichiers temporaires de scan
+live_targets.txt
+nuclei_results.json
+rapport_brut.md
+
+# Rapports générés
+reports/
+*.pdf
+
+# Configuration locale (Ne jamais versionner les clés API !)
+dojo_config.json
+
+# Fichiers système
+.DS_Store

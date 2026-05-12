@@ -1,0 +1,48 @@
+
+==================================================
+🚀 Démarrage du PoC AI Red Teaming sur : 192.168.1.0/24
+==================================================
+
+[*] Étape 1 : Découverte des cibles actives (Nmap)...
+[*] Exécution de : nmap -T4 --open -oG - 192.168.1.0/24
+[+] 20 cible(s) détectée(s) : 192.168.1.4, 192.168.1.7, 192.168.1.40, 192.168.1.54, 192.168.1.55, 192.168.1.61, 192.168.1.63, 192.168.1.71, 192.168.1.96, 192.168.1.100, 192.168.1.110, 192.168.1.142, 192.168.1.153, 192.168.1.156, 192.168.1.160, 192.168.1.170, 192.168.1.179, 192.168.1.180, 192.168.1.190, 192.168.1.254
+
+[*] Étape 2 : Scan de vulnérabilités sur les cibles actives (Nuclei)...
+[*] Exécution de : nuclei -l live_targets.txt -json-export nuclei_results.json -ni
+[+] 150 indicateurs bruts trouvés par Nuclei.
+
+[*] Étape 3 : Triage IA et rédaction du rapport (Ollama)...
+[*] Interrogation d'Ollama (Llama 3.1 8B)... Cela peut prendre quelques minutes.
+
+[*] Étape 4 : Exportation...
+[*] Génération du rapport PDF : rapport_reseau.pdf
+[+] Rapport généré avec succès : rapport_reseau.pdf
+
+==================================================
+✅ Processus terminé. Consultez le rapport PDF.
+==================================================
+
+
+==================================================
+🚀 Démarrage du PoC AI Red Teaming sur : 192.168.1.0/24
+==================================================
+
+[*] Étape 1 : Découverte des cibles actives (Nmap)...
+[*] Exécution de : nmap -T4 --open -oG - 192.168.1.0/24
+[+] 19 cible(s) détectée(s) : 192.168.1.4, 192.168.1.7, 192.168.1.40, 192.168.1.54, 192.168.1.55, 192.168.1.61, 192.168.1.63, 192.168.1.71, 192.168.1.96, 192.168.1.100, 192.168.1.142, 192.168.1.153, 192.168.1.156, 192.168.1.160, 192.168.1.170, 192.168.1.179, 192.168.1.180, 192.168.1.190, 192.168.1.254
+
+[*] Étape 2 : Scan de vulnérabilités sur les cibles actives (Nuclei)...
+[*] Exécution de : nuclei -l live_targets.txt -json-export nuclei_results.json -ni
+[+] 139 indicateurs bruts trouvés par Nuclei.
+
+[*] Étape 3 : Triage IA et rédaction du rapport (Ollama)...
+[*] Interrogation d'Ollama (Llama 3.1 8B)... Cela peut prendre quelques minutes.
+
+[*] Étape 4 : Exportation...
+[*] Génération du rapport PDF : rapport_reseau.pdf
+[+] Rapport généré avec succès : rapport_reseau.pdf
+
+==================================================
+✅ Processus terminé. Consultez le rapport PDF.
+==================================================
+
