@@ -25,7 +25,7 @@ Elle combine la puissance de découverte réseau de **Nmap** et de **Nuclei** av
 Sur une machine Debian/Ubuntu avec accès Internet, tapez simplement cette commande pour installer l'application complète, configurer les dépendances (Nmap, Nuclei, Python), et installer le modèle IA local :
 
 ```bash
-curl -sL https://raw.githubusercontent.com/VOTRE_NOM_GITHUB/sentient-ai/main/install.sh | sudo bash
+curl -sL https://raw.githubusercontent.com/magasword22/sentient-ai/main/install.sh | sudo bash
 ```
 
 Une fois installé, l'application est accessible depuis n'importe quel navigateur à l'adresse :
