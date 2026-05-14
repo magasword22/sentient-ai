@@ -1,6 +1,6 @@
 # 🛡️ Sentient AI
 
-<img src="assets/logo.png" width="180" align="right">
+<img src="assets/SentientAIPurple.png" width="180" align="right">
 
 **Sentient AI** est une plateforme d'audit de sécurité automatisée (PTaaS - Penetration Testing as a Service), propulsée par une architecture d'Agents d'Intelligence Artificielle (CrewAI) fonctionnant à **100% en local** (Ollama).
 

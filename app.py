@@ -117,7 +117,7 @@ st.markdown("""
 # -----------------------------------------------------------------------------
 with st.sidebar:
     try:
-        st.image("assets/logo.png", width=120)
+        st.image("assets/SentientAIPurple.png", width=120)
     except:
         pass
     st.markdown("### Sentient AI")
