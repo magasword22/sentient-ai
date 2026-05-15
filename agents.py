@@ -88,8 +88,9 @@ def run_cyber_crew(target_desc, nuclei_results, rag_context):
         description=(
             f"Prends l'analyse technique de l'analyste et rédige le rapport final de sécurité.\n\n"
             f"ATTENTION : Tu dois générer un rapport complet en Markdown basé sur les VRAIES données de l'analyste. "
-            f"Ne copie pas de texte à trous (comme '[Nom de la vulnérabilité]'). Tu dois écrire les vraies valeurs.\n\n"
-            f"STRUCTURE OBLIGATOIRE DU RAPPORT (Remplis avec les vraies données) :\n"
+            f"Ne copie pas de texte à trous. Tu dois écrire les vraies valeurs.\n\n"
+            f"POUR SATISFAIRE LE SYSTÈME, TU DOIS IMPÉRATIVEMENT COMMENCER TA RÉPONSE EXACTEMENT PAR 'Final Answer: ' SUIVI DU MARKDOWN :\n\n"
+            f"Final Answer:\n"
             f"# Rapport d'Évaluation de Vulnérabilités\n"
             f"Cibles audités : {target_desc}\n\n"
             f"## Résumé Exécutif\n"
