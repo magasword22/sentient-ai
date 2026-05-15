@@ -451,6 +451,7 @@ elif menu == "💬 Assistant Virtuel":
                     st.markdown(message["content"])
                     
             # Input utilisateur
+            use_web = st.toggle("🌐 Activer la recherche Web (Plus lent, mais enrichit les réponses avec l'actualité)")
             if prompt := st.chat_input("Posez votre question sur ce rapport..."):
                 # Ajouter la question de l'utilisateur
                 st.session_state[session_key].append({"role": "user", "content": prompt})
@@ -465,7 +466,7 @@ elif menu == "💬 Assistant Virtuel":
                         
                         try:
                             # Stream de la réponse
-                            for chunk in chat.stream_chat_response(report_md, st.session_state[session_key][:-1], prompt):
+                            for chunk in chat.stream_chat_response(report_md, st.session_state[session_key][:-1], prompt, use_web=use_web):
                                 full_response += chunk
                                 response_placeholder.markdown(full_response + "▌")
                             response_placeholder.markdown(full_response)

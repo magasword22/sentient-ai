@@ -1,4 +1,5 @@
 from langchain_community.llms import Ollama
+from langchain_community.tools import DuckDuckGoSearchRun
 
 def get_llm():
     return Ollama(
@@ -6,21 +7,27 @@ def get_llm():
         base_url="http://localhost:11434"
     )
 
-def stream_chat_response(report_md, chat_history, query):
+def stream_chat_response(report_md, chat_history, query, use_web=False):
     """
     Génère une réponse en streaming (générateur) en utilisant Ollama.
     """
     llm = get_llm()
     
-    # Nettoyage du rapport s'il est trop long (Ollama a une limite de contexte, mais Llama 3 a 8k tokens)
-    # Pour un PoC, on suppose que le rapport rentre dans le contexte.
-    
+    web_context = ""
+    if use_web:
+        try:
+            search = DuckDuckGoSearchRun()
+            results = search.run(query)
+            web_context = f"\n--- RÉSULTATS DE RECHERCHE WEB EN TEMPS RÉEL ---\n{results}\n--------------------------------------------------\n\n"
+        except Exception as e:
+            web_context = f"\n[Avertissement: Recherche Web échouée: {e}]\n\n"
+            
     system_prompt = f"""Tu es Sentient AI, un assistant de cybersécurité virtuel avancé.
 Ton rôle est d'analyser le rapport d'audit suivant et de répondre aux questions de l'utilisateur.
 Sois précis, professionnel, et fournis des recommandations d'experts.
 Si la question n'a aucun lien avec la cybersécurité ou le rapport, refuse poliment d'y répondre.
 
---- DÉBUT DU RAPPORT D'AUDIT ---
+{web_context}--- DÉBUT DU RAPPORT D'AUDIT ---
 {report_md}
 --- FIN DU RAPPORT D'AUDIT ---
 
