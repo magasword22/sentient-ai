@@ -66,7 +66,14 @@ APP_DIR="/opt/sentient"
 echo "[*] Étape 5 : Installation de l'application dans $APP_DIR..."
 
 mkdir -p $APP_DIR
-cp -rf ./* $APP_DIR/
+
+# Utilisation de rsync pour ne pas écraser les données de production (base de données, rapports) lors d'une mise à jour
+if command -v rsync &> /dev/null; then
+    rsync -av --exclude='audits.db' --exclude='reports' --exclude='rag_db' --exclude='venv' --exclude='.git' ./ $APP_DIR/
+else
+    # Fallback sécurisé si rsync n'est pas dispo
+    cp -rf *.py *.sh requirements.txt sentient.service $APP_DIR/
+fi
 
 cd $APP_DIR
 
