@@ -90,24 +90,24 @@ def run_cyber_crew(target_desc, nuclei_results, rag_context):
 
     report_task = Task(
         description=(
-            f"Prends l'analyse de l'analyste et rédige le rapport final.\n\n"
-            f"POUR SATISFAIRE LE SYSTÈME, TU DOIS IMPÉRATIVEMENT COMMENCER TA RÉPONSE EXACTEMENT PAR 'Final Answer: ' SUIVI DU MARKDOWN :\n\n"
-            f"Final Answer:\n"
+            f"Prends l'analyse technique de l'analyste et rédige le rapport final de sécurité.\n\n"
+            f"ATTENTION : Tu dois générer un rapport complet en Markdown basé sur les VRAIES données de l'analyste. "
+            f"Ne copie pas de texte à trous (comme '[Nom de la vulnérabilité]'). Tu dois écrire les vraies valeurs.\n\n"
+            f"STRUCTURE OBLIGATOIRE DU RAPPORT (Remplis avec les vraies données) :\n"
             f"# Rapport d'Évaluation de Vulnérabilités\n"
             f"Cibles audités : {target_desc}\n\n"
             f"## Résumé Exécutif\n"
-            f"[Ton résumé ici en 3 lignes]\n\n"
+            f"(Rédige ici un résumé exécutif global en 3 lignes)\n\n"
             f"## Détails Techniques et Remédiation\n"
-            f"### [Nom de la vulnérabilité] ([CVE s'il y en a une])\n"
-            f"- **Hôte vulnérable** : [IP/URL]\n"
-            f"- **Sévérité** : [Sévérité]\n"
-            f"- **Description** : [Description détaillée]\n"
-            f"- **Preuve de concept (PoC)** : [Inclure ici UNIQUEMENT le lien URL réel et complet du PoC trouvé. Si aucun lien n'a été trouvé, écrire 'Aucun PoC public identifié']\n"
-            f"- **Recommandation** : [Ta recommandation basée sur le RAG]\n\n"
-            f"RAG CONTEXT (Utilise-le pour les recommandations) :\n"
-            f"{rag_safe_context}\n"
+            f"(Pour CHAQUE vulnérabilité trouvée par l'analyste, crée une section avec ce format exact) :\n"
+            f"### Nom de la vulnérabilité (CVE si disponible)\n"
+            f"- **Hôte vulnérable** : (IP ou URL de l'hôte)\n"
+            f"- **Sévérité** : (Sévérité)\n"
+            f"- **Description** : (Explication détaillée de l'impact)\n"
+            f"- **Preuve de concept (PoC)** : (URL réelle du PoC trouvée par l'analyste, ou 'Aucun PoC public identifié')\n"
+            f"- **Recommandation** : (Propose une recommandation technique concrète en t'aidant EXCLUSIVEMENT de ce contexte RAG : {rag_safe_context})\n"
         ),
-        expected_output="Le code Markdown complet du rapport, commençant exactement par '# Rapport d'Évaluation...'.",
+        expected_output="Le rapport de sécurité final en Markdown, avec les vraies données insérées et sans aucun texte entre crochets.",
         agent=pentester_agent
     )
 
