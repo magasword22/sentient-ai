@@ -67,7 +67,6 @@ echo "[*] Étape 5 : Installation de l'application dans $APP_DIR..."
 
 mkdir -p $APP_DIR
 cp -rf ./* $APP_DIR/
-rm -rf $APP_DIR/venv
 
 cd $APP_DIR
 
@@ -147,6 +146,12 @@ chmod +x /usr/local/bin/sentient
 
 # 5. Configuration du Service en arrière-plan (Systemd)
 echo "[*] Étape 7 : Configuration du service système..."
+
+# Correction SELinux pour Fedora/RHEL (Autorise systemd à exécuter le venv)
+if command -v chcon &> /dev/null; then
+    chcon -R -t bin_t $APP_DIR/venv/bin/ || true
+fi
+
 if [ -f "$APP_DIR/sentient.service" ]; then
     cp $APP_DIR/sentient.service /etc/systemd/system/
     systemctl daemon-reload
