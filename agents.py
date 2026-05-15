@@ -13,8 +13,8 @@ from crewai import Agent, Task, Crew, Process
 from langchain_community.llms import Ollama
 from langchain_community.tools import DuckDuckGoSearchRun
 
-# Outil de recherche désactivé pour la stabilité des petits modèles (Llama 3 8B)
-# search_tool = DuckDuckGoSearchRun()
+# Initialisation de l'outil de recherche Web
+search_tool = DuckDuckGoSearchRun()
 
 # Configuration du LLM Local via Langchain (Ollama)
 local_llm = Ollama(
@@ -47,8 +47,8 @@ def run_cyber_crew(target_desc, nuclei_results, rag_context):
         ),
         verbose=True,
         allow_delegation=False,
-        llm=local_llm
-        # tools=[search_tool]  # Désactivé pour éviter les boucles ReAct sur 8B
+        llm=local_llm,
+        tools=[search_tool]
     )
 
     pentester_agent = Agent(
@@ -72,12 +72,13 @@ def run_cyber_crew(target_desc, nuclei_results, rag_context):
             f"Voici les données JSON générées par Nuclei sur la cible {target_desc} :\n"
             f"```json\n{json_data_str}\n```\n\n"
             "Examine ces données. Identifie chaque vulnérabilité distincte, l'hôte affecté (TRÈS IMPORTANT) et la sévérité. "
-            "Cherche dans tes connaissances internes si un exploit ou 'Proof of Concept' (PoC) public existe pour chaque faille.\n\n"
+            "ACTION IMPÉRATIVE : MÊME SI TU CONNAIS DÉJÀ LA VULNÉRABILITÉ, tu DOIS utiliser l'outil de recherche Web (duckduckgo_search). "
+            "Cherche si un exploit ou 'Proof of Concept' (PoC) public existe pour chaque faille.\n\n"
             "DANS TON RÉSUMÉ FINAL POUR LE RAPPORTEUR, TU DOIS INCLURE :\n"
             "1. Le nom exact de la faille et son identifiant CVE (s'il existe dans le JSON).\n"
             "2. L'hôte concerné.\n"
             "3. La sévérité.\n"
-            "4. L'URL d'un PoC public si tu en connais un, sinon indique 'Aucun PoC identifié'."
+            "4. L'URL d'un PoC public si tu en as trouvé un via ta recherche, sinon indique 'Aucun PoC identifié'."
         ),
         expected_output="Un résumé technique listant pour chaque faille: la CVE, l'hôte, et l'URL réelle et complète du PoC s'il a été trouvé sur internet.",
         agent=analyst_agent
