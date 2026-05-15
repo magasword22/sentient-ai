@@ -22,7 +22,7 @@ Elle combine la puissance de découverte réseau de **Nmap** et de **Nuclei** av
 
 ## 💻 Installation Rapide (Automatisée)
 
-Sur une machine Debian/Ubuntu avec accès Internet, tapez simplement cette commande pour installer l'application complète, configurer les dépendances (Nmap, Nuclei, Python), et installer le modèle IA local :
+Sur une machine Linux (Debian, Ubuntu, Fedora, RedHat, CentOS) avec accès Internet, tapez simplement cette commande pour installer l'application complète, configurer les dépendances (Nmap, Nuclei, Python), et installer le modèle IA local :
 
 ```bash
 curl -sL https://raw.githubusercontent.com/magasword22/sentient-ai/main/install.sh | sudo bash
