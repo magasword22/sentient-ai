@@ -65,12 +65,8 @@ ollama pull llama3.1:8b
 APP_DIR="/opt/sentient"
 echo "[*] Étape 5 : Installation de l'application dans $APP_DIR..."
 
-if [ ! -d "$APP_DIR" ]; then
-    # Dans un vrai scénario, on ferait un git clone ici.
-    # Pour le moment on copie le dossier actuel
-    mkdir -p $APP_DIR
-    cp -r ./* $APP_DIR/
-fi
+mkdir -p $APP_DIR
+cp -rf ./* $APP_DIR/
 
 cd $APP_DIR
 
