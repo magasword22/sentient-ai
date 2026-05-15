@@ -1,5 +1,8 @@
 from langchain_community.llms import Ollama
-from langchain_community.tools import DuckDuckGoSearchRun
+try:
+    from ddgs import DDGS
+except ImportError:
+    pass
 
 def get_llm():
     return Ollama(
@@ -16,9 +19,14 @@ def stream_chat_response(report_md, chat_history, query, use_web=False):
     web_context = ""
     if use_web:
         try:
-            search = DuckDuckGoSearchRun()
-            results = search.run(query)
-            web_context = f"\n--- RÉSULTATS DE RECHERCHE WEB EN TEMPS RÉEL ---\n{results}\n--------------------------------------------------\n\n"
+            with DDGS() as ddgs:
+                results = list(ddgs.text(query, max_results=3))
+            
+            if results:
+                res_str = "\n".join([f"- {r['title']}: {r['body']}" for r in results])
+                web_context = f"\n--- RÉSULTATS DE RECHERCHE WEB EN TEMPS RÉEL ---\n{res_str}\n--------------------------------------------------\n\n"
+            else:
+                web_context = f"\n[Avertissement: Aucun résultat Web pertinent trouvé]\n\n"
         except Exception as e:
             web_context = f"\n[Avertissement: Recherche Web échouée: {e}]\n\n"
             

@@ -11,10 +11,26 @@ if not hasattr(ast, 'Str'):
 
 from crewai import Agent, Task, Crew, Process
 from langchain_community.llms import Ollama
-from langchain_community.tools import DuckDuckGoSearchRun
+from langchain.tools import tool
+try:
+    from ddgs import DDGS
+except ImportError:
+    pass  # We will handle it if ddgs is not installed
 
-# Initialisation de l'outil de recherche Web
-search_tool = DuckDuckGoSearchRun()
+@tool("duckduckgo_search")
+def duckduckgo_search(query: str) -> str:
+    """Outil de recherche web. Utile pour chercher des PoC ou des exploits sur internet. Entrée: requête textuelle."""
+    try:
+        with DDGS() as ddgs:
+            results = list(ddgs.text(query, max_results=2))
+            if results:
+                return "\n".join([f"- {r['title']}: {r['body']}" for r in results])
+            return "Aucun résultat pertinent trouvé."
+    except Exception as e:
+        return f"Erreur de recherche: {str(e)}"
+
+# Initialisation de l'outil de recherche Web (Custom)
+search_tool = duckduckgo_search
 
 # Configuration du LLM Local via Langchain (Ollama)
 local_llm = Ollama(
