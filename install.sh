@@ -147,9 +147,20 @@ chmod +x /usr/local/bin/sentient
 # 5. Configuration du Service en arrière-plan (Systemd)
 echo "[*] Étape 7 : Configuration du service système..."
 
-# Correction SELinux pour Fedora/RHEL (Autorise systemd à exécuter le venv)
-if command -v chcon &> /dev/null; then
-    chcon -R -t bin_t $APP_DIR/venv/bin/ || true
+# Vérification SELinux
+if command -v getenforce &> /dev/null && [ "$(getenforce)" = "Enforcing" ]; then
+    echo ""
+    echo "[!] SELinux est activé et pourrait bloquer le démarrage de l'application."
+    read -p "Voulez-vous faire confiance et autoriser l'exécution de nos binaires ? (O/n) : " selinux_choice
+    case "$selinux_choice" in
+        n|N ) 
+            echo "[-] Configuration SELinux ignorée (le service risque de ne pas démarrer)."
+            ;;
+        * ) 
+            echo "[*] Application du label de sécurité (bin_t)..."
+            chcon -R -t bin_t $APP_DIR/venv/bin/ || true
+            ;;
+    esac
 fi
 
 if [ -f "$APP_DIR/sentient.service" ]; then
