@@ -219,7 +219,14 @@ def main():
     target_desc = f"{target} ({len(active_hosts)} hôte(s) web scanné(s))"
     markdown_report = analyze_with_ollama(target_desc, nuclei_results)
     
-    with open("rapport_brut.md", "w") as f:
+    with open("rapport_brut.md", "w", encoding="utf-8") as f:
+        f.write(markdown_report)
+        
+    md_output = args.output.replace('.pdf', '.md')
+    if md_output == args.output:
+        md_output += ".md"
+        
+    with open(md_output, "w", encoding="utf-8") as f:
         f.write(markdown_report)
         
     # 4. Export PDF

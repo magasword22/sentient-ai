@@ -8,6 +8,7 @@ from database import init_db, add_scan, get_history
 from scanner import discover_active_hosts, scan_nuclei, analyze_with_ollama, export_to_pdf
 import rag
 import defectdojo
+import chat
 
 # -----------------------------------------------------------------------------
 # Configuration Globale
@@ -130,6 +131,7 @@ with st.sidebar:
             "📊 Tableau de Bord", 
             "⚡ Lancer un Audit", 
             "📂 Centre de Rapports", 
+            "💬 Assistant Virtuel",
             "🧠 Base de Connaissances (RAG)", 
             "⚙️ Configuration"
         ],
@@ -387,8 +389,13 @@ elif menu == "⚡ Lancer un Audit" or st.session_state.get('force_menu') == "⚡
                     os.makedirs("reports", exist_ok=True)
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                     pdf_filename = f"reports/audit_{timestamp}.pdf"
+                    md_filename = f"reports/audit_{timestamp}.md"
+                    
+                    with open(md_filename, "w", encoding="utf-8") as f:
+                        f.write(markdown_report)
+                        
                     export_to_pdf(markdown_report, pdf_filename)
-                    status4.update(label="Rapport PDF scellé.", state="complete", expanded=False)
+                    status4.update(label="Rapports générés (PDF & Markdown).", state="complete", expanded=False)
                 progress_bar.progress(100)
                 
             add_scan(target_input, len(active_hosts), len(nuclei_results), pdf_filename)
@@ -411,6 +418,64 @@ elif menu == "⚡ Lancer un Audit" or st.session_state.get('force_menu') == "⚡
 # ==========================================
 # 📂 CENTRE DE RAPPORTS & AUTRES ONGLETS
 # ==========================================
+elif menu == "💬 Assistant Virtuel":
+    st.markdown("<h2>💬 Assistant Virtuel Contextuel</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='color:#a1a1aa;'>Discutez avec Sentient AI à propos de vos audits précédents.</p>", unsafe_allow_html=True)
+    
+    history = get_history()
+    if not history:
+        st.info("Aucun audit disponible. Veuillez lancer un audit d'abord.")
+    else:
+        # Sélecteur de rapport
+        options = {f"{entry['date']} - {entry['target']}": entry for entry in history}
+        selected_key = st.selectbox("Sélectionnez le rapport à analyser :", list(options.keys()))
+        selected_entry = options[selected_key]
+        
+        # Le fichier markdown correspondant au PDF
+        md_path = selected_entry['report_path'].replace('.pdf', '.md')
+        
+        if not os.path.exists(md_path):
+            st.warning("⚠️ Le contexte textuel (.md) de ce rapport n'est pas disponible. (Seuls les nouveaux rapports sont supportés).")
+        else:
+            with open(md_path, 'r', encoding='utf-8') as f:
+                report_md = f.read()
+                
+            # Initialisation de l'historique de chat pour ce rapport spécifique
+            session_key = f"chat_{selected_entry['id']}"
+            if session_key not in st.session_state:
+                st.session_state[session_key] = [{"role": "assistant", "content": "Bonjour ! J'ai lu ce rapport d'audit. Que souhaitez-vous savoir ?"}]
+                
+            # Affichage de l'historique
+            for message in st.session_state[session_key]:
+                with st.chat_message(message["role"]):
+                    st.markdown(message["content"])
+                    
+            # Input utilisateur
+            if prompt := st.chat_input("Posez votre question sur ce rapport..."):
+                # Ajouter la question de l'utilisateur
+                st.session_state[session_key].append({"role": "user", "content": prompt})
+                with st.chat_message("user"):
+                    st.markdown(prompt)
+                    
+                # Génération de la réponse
+                with st.chat_message("assistant"):
+                    with st.spinner("Analyse du rapport en cours..."):
+                        response_placeholder = st.empty()
+                        full_response = ""
+                        
+                        try:
+                            # Stream de la réponse
+                            for chunk in chat.stream_chat_response(report_md, st.session_state[session_key][:-1], prompt):
+                                full_response += chunk
+                                response_placeholder.markdown(full_response + "▌")
+                            response_placeholder.markdown(full_response)
+                        except Exception as e:
+                            full_response = f"Désolé, une erreur est survenue : {e}"
+                            response_placeholder.markdown(full_response)
+                            
+                # Sauvegarde de la réponse
+                st.session_state[session_key].append({"role": "assistant", "content": full_response})
+
 elif menu == "📂 Centre de Rapports":
     st.markdown("<h2>Centre de Rapports (Vault)</h2>", unsafe_allow_html=True)
     st.info("Retrouvez ici tous les PDF générés lors de vos précédents scans.")
