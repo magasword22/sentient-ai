@@ -179,7 +179,7 @@ if menu == "📊 Tableau de Bord":
         st.markdown("<p style='color:#a1a1aa;'>Vue consolidée des menaces et de l'état du parc informatique.</p>", unsafe_allow_html=True)
     with col_btn:
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("⚡ Lancer un nouveau scan", type="primary", use_container_width=True):
+        if st.button("⚡ Lancer un nouveau scan", type="primary"):
             st.session_state.force_menu = "⚡ Lancer un Audit"
             st.rerun()
 
@@ -260,7 +260,7 @@ if menu == "📊 Tableau de Bord":
                 color=alt.Color(field="Sévérité", type="nominal", scale=alt.Scale(domain=["Critique", "Haute", "Moyenne", "Faible"], range=["#ef4444", "#f97316", "#eab308", "#3b82f6"]), legend=None),
                 tooltip=["Sévérité", "Count"]
             ).properties(height=300).configure_view(strokeWidth=0).configure_title(fontSize=16)
-            st.altair_chart(chart, use_container_width=True)
+            st.altair_chart(chart)
         else:
             st.info("Aucune vulnérabilité à afficher.")
 
@@ -333,7 +333,7 @@ elif menu == "⚡ Lancer un Audit" or st.session_state.get('force_menu') == "⚡
             use_misconfigs = st.checkbox("Mauvaises Configurations", value=True, help="Recherche les erreurs de config serveur")
             
         st.markdown("</div><br>", unsafe_allow_html=True)
-        submitted = st.form_submit_button("🚀 INITIALISER LA CHAÎNE D'AUDIT", type="primary", use_container_width=True)
+        submitted = st.form_submit_button("🚀 INITIALISER LA CHAÎNE D'AUDIT", type="primary")
 
     if submitted:
         if not target_input:
@@ -404,10 +404,10 @@ elif menu == "⚡ Lancer un Audit" or st.session_state.get('force_menu') == "⚡
             col_dl, col_dojo = st.columns(2)
             with col_dl:
                 with open(pdf_filename, "rb") as f:
-                    st.download_button("📥 Télécharger le Rapport d'Audit Exécutif", f, file_name=f"Sentient_Report_{timestamp}.pdf", mime="application/pdf", type="primary", use_container_width=True)
+                    st.download_button("📥 Télécharger le Rapport d'Audit Exécutif", f, file_name=f"Sentient_Report_{timestamp}.pdf", mime="application/pdf", type="primary")
             
             with col_dojo:
-                if st.button("☁️ Pousser vers DefectDojo", use_container_width=True):
+                if st.button("☁️ Pousser vers DefectDojo"):
                     with st.spinner("Envoi à l'API DefectDojo..."):
                         success, msg = defectdojo.push_to_dojo("nuclei_results.json")
                         if success:
@@ -497,7 +497,7 @@ elif menu == "🧠 Base de Connaissances (RAG)":
     with col_stat:
         st.info(f"📚 Fragments de connaissances actuellement indexés en mémoire locale : **{rag.get_doc_count()}**")
     with col_action:
-        if st.button("🗑️ Purger la base", use_container_width=True):
+        if st.button("🗑️ Purger la base"):
             rag.clear_db()
             st.rerun()
             
