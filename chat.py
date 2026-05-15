@@ -20,7 +20,7 @@ def stream_chat_response(report_md, chat_history, query, use_web=False):
     if use_web:
         try:
             # Demander au LLM d'extraire les mots-clés pour optimiser la recherche
-            keyword_prompt = f"Extract only the 3-4 most important technical keywords from this question for a Google search (e.g. vulnerability name, CVE, technology). Return ONLY the keywords, no sentence, no punctuation: '{query}'"
+            keyword_prompt = f"Extract the most important technical keywords for a Google search (vulnerability name, CVE, etc) from: '{query}'. Return ONLY a space-separated list of 2-3 keywords without any punctuation or commas. If it's a CVE, include the word 'Linux' to help the search engine."
             search_query = llm.invoke(keyword_prompt).strip()
             
             with DDGS() as ddgs:
@@ -39,6 +39,7 @@ def stream_chat_response(report_md, chat_history, query, use_web=False):
 Ton rôle est d'analyser le rapport d'audit suivant et de répondre aux questions de l'utilisateur.
 Sois précis, professionnel, et fournis des recommandations d'experts.
 Si la question n'a aucun lien avec la cybersécurité ou le rapport, refuse poliment d'y répondre.
+Cependant, si l'utilisateur demande des informations sur une faille (comme une CVE) et que la recherche Web ne retourne aucun résultat, NE DIS PAS que la faille n'existe pas. Explique simplement que le moteur de recherche n'a pas trouvé de résultats pour le moment, et propose ton aide sur le reste.
 
 {web_context}--- DÉBUT DU RAPPORT D'AUDIT ---
 {report_md}
