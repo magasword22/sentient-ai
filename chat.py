@@ -19,14 +19,19 @@ def stream_chat_response(report_md, chat_history, query, use_web=False):
     web_context = ""
     if use_web:
         try:
+            # Demander au LLM d'extraire les mots-clés pour optimiser la recherche
+            keyword_prompt = f"Extract only the 3-4 most important technical keywords from this question for a Google search (e.g. vulnerability name, CVE, technology). Return ONLY the keywords, no sentence, no punctuation: '{query}'"
+            search_query = llm.invoke(keyword_prompt).strip()
+            
             with DDGS() as ddgs:
-                results = list(ddgs.text(query, max_results=3))
+                # On cherche avec les mots-clés extraits, pas avec la phrase complète
+                results = list(ddgs.text(search_query, max_results=3))
             
             if results:
                 res_str = "\n".join([f"- {r['title']}: {r['body']}" for r in results])
-                web_context = f"\n--- RÉSULTATS DE RECHERCHE WEB EN TEMPS RÉEL ---\n{res_str}\n--------------------------------------------------\n\n"
+                web_context = f"\n--- RÉSULTATS DE RECHERCHE WEB EN TEMPS RÉEL (Recherche: {search_query}) ---\n{res_str}\n--------------------------------------------------\n\n"
             else:
-                web_context = f"\n[Avertissement: Aucun résultat Web pertinent trouvé]\n\n"
+                web_context = f"\n[Avertissement: Aucun résultat Web pertinent trouvé pour '{search_query}']\n\n"
         except Exception as e:
             web_context = f"\n[Avertissement: Recherche Web échouée: {e}]\n\n"
             
