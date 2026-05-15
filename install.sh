@@ -17,8 +17,15 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 echo "[*] Étape 1 : Mise à jour du système et dépendances système..."
-apt-get update -y
-apt-get install -y nmap wget curl git python3 python3-venv python3-pip unzip
+if command -v apt-get &> /dev/null; then
+    apt-get update -y
+    apt-get install -y nmap wget curl git python3 python3-venv python3-pip unzip
+elif command -v dnf &> /dev/null; then
+    dnf install -y nmap wget curl git python3 python3-pip unzip
+    # Note: python3-venv n'est pas toujours séparé sur Fedora, pip l'est.
+else
+    echo "[!] Gestionnaire de paquets non reconnu (ni apt, ni dnf). Veuillez installer les dépendances manuellement."
+fi
 
 # 2. Installation de Go et Nuclei
 echo "[*] Étape 2 : Installation de Nuclei..."
