@@ -1,7 +1,7 @@
 #!/bin/bash
 # =============================================================================
 # Sentient AI - Installateur Automatisé
-# Compatible Debian / Ubuntu
+# Compatible Debian / Ubuntu / Fedora / RHEL
 # =============================================================================
 
 set -e
@@ -22,9 +22,11 @@ if command -v apt-get &> /dev/null; then
     apt-get install -y nmap wget curl git python3 python3-venv python3-pip unzip
 elif command -v dnf &> /dev/null; then
     dnf install -y nmap wget curl git python3 python3-pip unzip
-    # Note: python3-venv n'est pas toujours séparé sur Fedora, pip l'est.
+elif command -v yum &> /dev/null; then
+    yum install -y nmap wget curl git python3 python3-pip unzip
 else
-    echo "[!] Gestionnaire de paquets non reconnu (ni apt, ni dnf). Veuillez installer les dépendances manuellement."
+    echo "[!] Gestionnaire de paquets non reconnu (ni apt, ni dnf, ni yum)."
+    exit 1
 fi
 
 # 2. Installation de Go et Nuclei
