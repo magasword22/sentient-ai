@@ -450,9 +450,25 @@ elif menu == "💬 Assistant Virtuel":
                 with st.chat_message(message["role"]):
                     st.markdown(message["content"])
                     
+            # Suggestions de prompts
+            st.markdown("💡 **Suggestions rapides :**")
+            col1, col2, col3 = st.columns(3)
+            
+            suggested_prompt = None
+            if col1.button("📄 Documentation complète", help="Génère un guide pas-à-pas pour la remédiation"):
+                suggested_prompt = "Génère une documentation complète et détaillée étape par étape pour résoudre toutes les failles listées dans ce rapport."
+            if col2.button("💼 Résumé Business", help="Explique l'impact pour les décideurs"):
+                suggested_prompt = "Explique les impacts métier et les risques pour l'entreprise causés par ces vulnérabilités, dans un langage simple pour un directeur non technique."
+            if col3.button("💻 Script d'automatisation", help="Génère des commandes de correction"):
+                suggested_prompt = "Génère un script Bash ou un playbook Ansible permettant de corriger ou de mitiger automatiquement ces failles sur les serveurs."
+
             # Input utilisateur
             use_web = st.toggle("🌐 Activer la recherche Web (Plus lent, mais enrichit les réponses avec l'actualité)")
-            if prompt := st.chat_input("Posez votre question sur ce rapport..."):
+            
+            user_input = st.chat_input("Posez votre question sur ce rapport...")
+            prompt = suggested_prompt if suggested_prompt else user_input
+            
+            if prompt:
                 # Ajouter la question de l'utilisateur
                 st.session_state[session_key].append({"role": "user", "content": prompt})
                 with st.chat_message("user"):
