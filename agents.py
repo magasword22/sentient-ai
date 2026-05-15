@@ -13,8 +13,9 @@ from crewai import Agent, Task, Crew, Process
 from langchain_community.llms import Ollama
 from langchain_community.tools import DuckDuckGoSearchRun
 
-# Initialisation de l'outil de recherche Web
-search_tool = DuckDuckGoSearchRun()
+# Note: La recherche Web est désactivée dans les agents car le modèle 8B n'arrive pas à utiliser 
+# le format ReAct (Thought/Action) correctement, ce qui provoque des "iteration limits".
+# La recherche Web a été déportée vers le module Chat.
 
 # Configuration du LLM Local via Langchain (Ollama)
 local_llm = Ollama(
@@ -47,8 +48,7 @@ def run_cyber_crew(target_desc, nuclei_results, rag_context):
         ),
         verbose=True,
         allow_delegation=False,
-        llm=local_llm,
-        tools=[search_tool]
+        llm=local_llm
     )
 
     pentester_agent = Agent(
@@ -74,15 +74,16 @@ def run_cyber_crew(target_desc, nuclei_results, rag_context):
             "Examine STRICTEMENT ces données. Identifie chaque vulnérabilité distincte PRÉSENTE DANS LE JSON. "
             "RÈGLE D'OR : N'INVENTE AUCUNE VULNÉRABILITÉ (ex: Log4j, CVE aléatoire) QUI NE SOIT PAS EXPLICITEMENT ÉCRITE DANS LE JSON. "
             "Si les données JSON ne contiennent que des informations de base (tech-detect, info), indique qu'aucune vulnérabilité majeure n'a été trouvée. "
-            "ACTION IMPÉRATIVE : MÊME SI TU CONNAIS DÉJÀ LA VULNÉRABILITÉ, tu DOIS utiliser l'outil de recherche Web (duckduckgo_search). "
-            "Cherche si un exploit ou 'Proof of Concept' (PoC) public existe pour chaque faille REELLE du JSON.\n\n"
+            "Si les données JSON ne contiennent que des informations de base (tech-detect, info), indique qu'aucune vulnérabilité majeure n'a été trouvée.\n\n"
+            "POUR SATISFAIRE LE SYSTÈME, TU DOIS IMPÉRATIVEMENT COMMENCER TA RÉPONSE EXACTEMENT PAR 'Final Answer: ' SUIVI DE TON RÉSUMÉ :\n\n"
+            "Final Answer:\n"
             "DANS TON RÉSUMÉ FINAL POUR LE RAPPORTEUR, TU DOIS INCLURE :\n"
             "1. Le nom exact de la faille et son identifiant CVE (s'il existe dans le JSON).\n"
             "2. L'hôte concerné.\n"
             "3. La sévérité.\n"
-            "4. L'URL d'un PoC public si tu en as trouvé un via ta recherche, sinon indique 'Aucun PoC identifié'."
+            "4. Indique simplement 'Aucun PoC identifié'."
         ),
-        expected_output="Un résumé technique listant pour chaque faille: la CVE, l'hôte, et l'URL réelle et complète du PoC s'il a été trouvé sur internet.",
+        expected_output="Un résumé technique listant pour chaque faille: la CVE et l'hôte.",
         agent=analyst_agent
     )
 
