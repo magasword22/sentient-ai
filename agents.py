@@ -1,4 +1,14 @@
 import json
+import ast
+
+# Polyfill pour Python 3.14 (corrige docstring-parser utilisé par crewai/instructor)
+if not hasattr(ast, 'NameConstant'):
+    ast.NameConstant = ast.Constant
+if not hasattr(ast, 'Num'):
+    ast.Num = ast.Constant
+if not hasattr(ast, 'Str'):
+    ast.Str = ast.Constant
+
 from crewai import Agent, Task, Crew, Process
 from langchain_community.llms import Ollama
 from langchain_community.tools import DuckDuckGoSearchRun
