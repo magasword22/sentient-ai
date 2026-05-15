@@ -67,6 +67,7 @@ echo "[*] Étape 5 : Installation de l'application dans $APP_DIR..."
 
 mkdir -p $APP_DIR
 cp -rf ./* $APP_DIR/
+rm -rf $APP_DIR/venv
 
 cd $APP_DIR
 
