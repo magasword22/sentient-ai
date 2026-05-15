@@ -22,10 +22,12 @@ def stream_chat_response(report_md, chat_history, query, use_web=False):
             # Demander au LLM d'extraire les mots-clés pour optimiser la recherche
             keyword_prompt = f"Extract the most important technical keywords for a Google search (vulnerability name, CVE, etc) from: '{query}'. Return ONLY a space-separated list of 2-3 keywords without any punctuation or commas. If it's a CVE, include the word 'Linux' to help the search engine."
             search_query = llm.invoke(keyword_prompt).strip()
+            print(f"[DEBUG] Extracted search query: '{search_query}'")
             
             with DDGS() as ddgs:
                 # On cherche avec les mots-clés extraits, pas avec la phrase complète
                 results = list(ddgs.text(search_query, max_results=3))
+                print(f"[DEBUG] Web search returned {len(results)} results")
             
             if results:
                 res_str = "\n".join([f"- {r['title']}: {r['body']}" for r in results])
@@ -36,10 +38,11 @@ def stream_chat_response(report_md, chat_history, query, use_web=False):
             web_context = f"\n[Avertissement: Recherche Web échouée: {e}]\n\n"
             
     system_prompt = f"""Tu es Sentient AI, un assistant de cybersécurité virtuel avancé.
-Ton rôle est d'analyser le rapport d'audit suivant et de répondre aux questions de l'utilisateur.
-Sois précis, professionnel, et fournis des recommandations d'experts.
-Si la question n'a aucun lien avec la cybersécurité ou le rapport, refuse poliment d'y répondre.
-Cependant, si l'utilisateur demande des informations sur une faille (comme une CVE) et que la recherche Web ne retourne aucun résultat, NE DIS PAS que la faille n'existe pas. Explique simplement que le moteur de recherche n'a pas trouvé de résultats pour le moment, et propose ton aide sur le reste.
+Ton rôle principal est d'analyser le rapport d'audit suivant et de répondre aux questions.
+Cependant, tu peux AUSSI utiliser tes connaissances générales et les résultats de la recherche Web pour répondre à des questions de cybersécurité qui ne sont PAS dans le rapport (ex: expliquer une CVE).
+Si une recherche Web est fournie, utilise-la pour formuler ta réponse avec précision.
+Si la question n'a aucun lien avec la cybersécurité (ex: recette de cuisine, météo), refuse poliment d'y répondre.
+Ne dis JAMAIS qu'une faille n'existe pas simplement parce qu'elle n'est pas dans le rapport.
 
 {web_context}--- DÉBUT DU RAPPORT D'AUDIT ---
 {report_md}
