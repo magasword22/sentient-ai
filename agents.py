@@ -71,9 +71,11 @@ def run_cyber_crew(target_desc, nuclei_results, rag_context):
         description=(
             f"Voici les données JSON générées par Nuclei sur la cible {target_desc} :\n"
             f"```json\n{json_data_str}\n```\n\n"
-            "Examine ces données. Identifie chaque vulnérabilité distincte, l'hôte affecté (TRÈS IMPORTANT) et la sévérité. "
+            "Examine STRICTEMENT ces données. Identifie chaque vulnérabilité distincte PRÉSENTE DANS LE JSON. "
+            "RÈGLE D'OR : N'INVENTE AUCUNE VULNÉRABILITÉ (ex: Log4j, CVE aléatoire) QUI NE SOIT PAS EXPLICITEMENT ÉCRITE DANS LE JSON. "
+            "Si les données JSON ne contiennent que des informations de base (tech-detect, info), indique qu'aucune vulnérabilité majeure n'a été trouvée. "
             "ACTION IMPÉRATIVE : MÊME SI TU CONNAIS DÉJÀ LA VULNÉRABILITÉ, tu DOIS utiliser l'outil de recherche Web (duckduckgo_search). "
-            "Cherche si un exploit ou 'Proof of Concept' (PoC) public existe pour chaque faille.\n\n"
+            "Cherche si un exploit ou 'Proof of Concept' (PoC) public existe pour chaque faille REELLE du JSON.\n\n"
             "DANS TON RÉSUMÉ FINAL POUR LE RAPPORTEUR, TU DOIS INCLURE :\n"
             "1. Le nom exact de la faille et son identifiant CVE (s'il existe dans le JSON).\n"
             "2. L'hôte concerné.\n"
@@ -87,8 +89,8 @@ def run_cyber_crew(target_desc, nuclei_results, rag_context):
     report_task = Task(
         description=(
             f"Prends l'analyse technique de l'analyste et rédige le rapport final de sécurité.\n\n"
-            f"ATTENTION : Tu dois générer un rapport complet en Markdown basé sur les VRAIES données de l'analyste. "
-            f"Ne copie pas de texte à trous. Tu dois écrire les vraies valeurs.\n\n"
+            f"ATTENTION : Tu dois générer un rapport complet en Markdown basé UNIQUEMENT sur les VRAIES données transmises par l'analyste. "
+            f"N'INVENTE AUCUNE VULNÉRABILITÉ. Ne copie pas de texte à trous. Tu dois écrire les vraies valeurs.\n\n"
             f"POUR SATISFAIRE LE SYSTÈME, TU DOIS IMPÉRATIVEMENT COMMENCER TA RÉPONSE EXACTEMENT PAR 'Final Answer: ' SUIVI DU MARKDOWN :\n\n"
             f"Final Answer:\n"
             f"# Rapport d'Évaluation de Vulnérabilités\n"
