@@ -135,17 +135,17 @@ if ! command -v nuclei &> /dev/null; then
     NUCLEI_URL="https://github.com/projectdiscovery/nuclei/releases/download/v3.2.0/nuclei_3.2.0_${NUCLEI_OS}_${ARCH_TYPE}.zip"
     echo "[*] Téléchargement de Nuclei depuis $NUCLEI_URL ..."
     
-    if wget "$NUCLEI_URL" -O nuclei.zip; then
-        unzip -o nuclei.zip
-        rm nuclei.zip
+    TMP_DIR=$(mktemp -d)
+    if wget "$NUCLEI_URL" -O "$TMP_DIR/nuclei.zip"; then
+        unzip -o "$TMP_DIR/nuclei.zip" -d "$TMP_DIR"
         
         # Installation du binaire
         if [ "$IS_ROOT" = true ]; then
-            mv nuclei /usr/local/bin/
+            mv "$TMP_DIR/nuclei" /usr/local/bin/
             echo "[+] Nuclei installé dans /usr/local/bin/"
         else
             mkdir -p "$HOME/.local/bin"
-            mv nuclei "$HOME/.local/bin/"
+            mv "$TMP_DIR/nuclei" "$HOME/.local/bin/"
             export PATH="$HOME/.local/bin:$PATH"
             echo "[+] Nuclei installé dans $HOME/.local/bin/"
         fi
@@ -157,6 +157,7 @@ if ! command -v nuclei &> /dev/null; then
             echo "[!] Go n'est pas installé. Veuillez installer Nuclei manuellement (https://github.com/projectdiscovery/nuclei)."
         fi
     fi
+    rm -rf "$TMP_DIR"
 else
     echo "[+] Nuclei est déjà installé."
 fi
@@ -232,15 +233,27 @@ fi
 
 # 7. Configuration de l'application
 echo "[*] Étape 6 : Configuration de l'application dans $APP_DIR..."
-mkdir -p $APP_DIR
+mkdir -p "$APP_DIR"
 
-if command -v rsync &> /dev/null; then
-    rsync -av --exclude='audits.db' --exclude='reports' --exclude='rag_db' --exclude='venv' --exclude='.git' ./ $APP_DIR/
+if [ -f "./requirements.txt" ] && [ -f "./app.py" ]; then
+    echo "[*] Fichiers sources détectés localement dans le répertoire courant. Copie en cours..."
+    if command -v rsync &> /dev/null; then
+        rsync -av --exclude='audits.db' --exclude='reports' --exclude='rag_db' --exclude='venv' --exclude='.git' ./ "$APP_DIR/"
+    else
+        cp -rf *.py *.sh requirements.txt sentient.service "$APP_DIR/"
+    fi
 else
-    cp -rf *.py *.sh requirements.txt sentient.service $APP_DIR/
+    echo "[*] Fichiers sources non détectés localement. Clonage du dépôt depuis GitHub..."
+    if [ -d "$APP_DIR/.git" ]; then
+        echo "[*] Dépôt déjà existant dans $APP_DIR, mise à jour (git pull)..."
+        cd "$APP_DIR"
+        git pull || true
+    else
+        git clone https://github.com/magasword22/sentient-ai.git "$APP_DIR"
+    fi
 fi
 
-cd $APP_DIR
+cd "$APP_DIR"
 
 # Configuration de l'environnement virtuel Python
 echo "[*] Étape 7 : Configuration de l'environnement virtuel Python..."

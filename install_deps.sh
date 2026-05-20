@@ -96,16 +96,16 @@ if ! command -v nuclei &> /dev/null; then
     
     NUCLEI_URL="https://github.com/projectdiscovery/nuclei/releases/download/v3.2.0/nuclei_3.2.0_${NUCLEI_OS}_${ARCH_TYPE}.zip"
     
-    if wget "$NUCLEI_URL" -O nuclei.zip; then
-        unzip -o nuclei.zip
-        rm nuclei.zip
+    TMP_DIR=$(mktemp -d)
+    if wget "$NUCLEI_URL" -O "$TMP_DIR/nuclei.zip"; then
+        unzip -o "$TMP_DIR/nuclei.zip" -d "$TMP_DIR"
         
         if [ "$EUID" -eq 0 ]; then
-            mv nuclei /usr/local/bin/
+            mv "$TMP_DIR/nuclei" /usr/local/bin/
             echo "[+] Nuclei installé dans /usr/local/bin/"
         else
             mkdir -p "$HOME/.local/bin"
-            mv nuclei "$HOME/.local/bin/"
+            mv "$TMP_DIR/nuclei" "$HOME/.local/bin/"
             export PATH="$HOME/.local/bin:$PATH"
             echo "[+] Nuclei installé dans $HOME/.local/bin/"
         fi
@@ -115,6 +115,7 @@ if ! command -v nuclei &> /dev/null; then
             go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
         fi
     fi
+    rm -rf "$TMP_DIR"
 else
     echo "[+] Nuclei est déjà installé."
 fi
