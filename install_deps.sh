@@ -41,31 +41,31 @@ if [ "$OS_TYPE" = "Linux" ]; then
     if command -v apt-get &> /dev/null; then
         echo "[+] Gestionnaire : APT (Debian/Ubuntu)"
         sudo apt-get update -y
-        sudo apt-get install -y nmap wget curl git python3 python3-venv python3-pip unzip libpango-1.0-0 libpangoft2-1.0-0 libjpeg-dev libopenjp2-7-dev libffi-dev
+        sudo apt-get install -y nmap wget curl git python3 python3-venv python3-pip unzip libpango-1.0-0 libpangoft2-1.0-0 libjpeg-dev libopenjp2-7-dev libffi-dev rustc cargo
     elif command -v dnf &> /dev/null; then
         echo "[+] Gestionnaire : DNF (Fedora/RHEL)"
-        sudo dnf install -y nmap wget curl git python3 python3-pip unzip pango pango-devel libffi-devel libjpeg-turbo-devel openjpeg2-devel
+        sudo dnf install -y nmap wget curl git python3 python3-pip unzip pango pango-devel libffi-devel libjpeg-turbo-devel openjpeg2-devel rust cargo
     elif command -v yum &> /dev/null; then
         echo "[+] Gestionnaire : YUM (CentOS)"
-        sudo yum install -y nmap wget curl git python3 python3-pip unzip pango pango-devel libffi-devel libjpeg-turbo-devel openjpeg2-devel
+        sudo yum install -y nmap wget curl git python3 python3-pip unzip pango pango-devel libffi-devel libjpeg-turbo-devel openjpeg2-devel rust cargo
     elif command -v pacman &> /dev/null; then
         echo "[+] Gestionnaire : Pacman (Arch)"
-        sudo pacman -Sy --noconfirm nmap wget unzip curl git python python-pip pango libffi libjpeg-turbo openjpeg2
+        sudo pacman -Sy --noconfirm nmap wget unzip curl git python python-pip pango libffi libjpeg-turbo openjpeg2 rust
     elif command -v apk &> /dev/null; then
         echo "[+] Gestionnaire : APK (Alpine)"
-        sudo apk add --no-cache nmap wget curl git python3 python3-dev py3-pip unzip pango-dev libffi-dev jpeg-dev openjpeg-dev g++
+        sudo apk add --no-cache nmap wget curl git python3 python3-dev py3-pip unzip pango-dev libffi-dev jpeg-dev openjpeg-dev g++ rust cargo
     elif command -v zypper &> /dev/null; then
         echo "[+] Gestionnaire : Zypper (openSUSE)"
-        sudo zypper install -y nmap wget curl git python3 python3-devel unzip pango pango-devel libffi-devel cairo-devel gdk-pixbuf-devel
+        sudo zypper install -y nmap wget curl git python3 python3-devel unzip pango pango-devel libffi-devel cairo-devel gdk-pixbuf-devel rust cargo
     else
-        echo "[!] Pas de gestionnaire de paquets supporté automatiquement. Installez nmap, python3, pip, wget, unzip et pango/cairo manuellement."
+        echo "[!] Pas de gestionnaire de paquets supporté automatiquement. Installez nmap, python3, pip, wget, unzip, le compilateur Rust (rustc & cargo) et pango/cairo manuellement."
     fi
 elif [ "$OS_TYPE" = "macOS" ]; then
     if command -v brew &> /dev/null; then
         echo "[+] Gestionnaire : Homebrew (macOS)"
-        brew install nmap wget curl git python3 unzip pango libffi openjpeg
+        brew install nmap wget curl git python3 unzip pango libffi openjpeg rust
     else
-        echo "[!] Installez Homebrew ou installez manuellement nmap, python3, pip, wget, unzip, git, pango et libffi."
+        echo "[!] Installez Homebrew ou installez manuellement nmap, python3, pip, wget, unzip, git, pango, libffi et rust."
     fi
 fi
 
