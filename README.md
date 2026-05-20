@@ -22,25 +22,52 @@ Elle combine la puissance de découverte réseau de **Nmap** et de **Nuclei** av
 
 ## 💻 Installation Rapide (Automatisée)
 
-Sur une machine Linux (Debian, Ubuntu, Fedora, RedHat, CentOS) avec accès Internet, tapez simplement cette commande pour installer l'application complète, configurer les dépendances (Nmap, Nuclei, Python), et installer le modèle IA local :
+Le script d'installation prend en charge automatiquement de nombreux systèmes et architectures :
+- **OS supportés** : Linux (Debian, Ubuntu, Mint, Kali, Fedora, RHEL, Rocky, CentOS, Arch Linux, Alpine, openSUSE), macOS et Windows (via WSL).
+- **Architectures** : Intel/AMD (`amd64` / `386`) et ARM (`arm64` / `armv6`).
+- **Accélération GPU** : Détection automatique des GPU **NVIDIA** (CUDA) et **AMD** (ROCm/Vulkan). Pour les puces graphiques AMD spécifiques comme **Strix Halo** (série Ryzen AI Max) ou RDNA2/3 (RX 6000/7000), le script configure automatiquement les variables d'environnement nécessaires pour forcer la compatibilité d'Ollama.
+
+### Lancement de l'installation
+
+Exécutez simplement la commande suivante dans votre terminal :
 
 ```bash
-curl -sL https://raw.githubusercontent.com/magasword22/sentient-ai/main/install.sh | sudo bash
+curl -sL https://raw.githubusercontent.com/magasword22/sentient-ai/main/install.sh | bash
 ```
 
-Une fois installé, l'application est accessible depuis n'importe quel navigateur à l'adresse :
+> [!NOTE]
+> - Si exécuté en tant que `root` (ou avec `sudo`), l'application s'installera dans `/opt/sentient` et le CLI sera disponible globalement sous `sentient`.
+> - Si exécuté en tant qu'utilisateur standard, l'application s'installera dans `$HOME/.sentient` et le CLI sera placé dans `$HOME/.local/bin/sentient`.
+
+Une fois installé, l'application est accessible à l'adresse :
 👉 `http://localhost:8501`
 
-*(Si la machine est sur votre réseau, remplacez `localhost` par son IP locale).*
+### Gestion de l'application (CLI `sentient`)
+
+Un gestionnaire en ligne de commande est installé pour contrôler facilement l'application en arrière-plan :
+
+```bash
+sentient start    # Démarre l'application
+sentient stop     # Arrête l'application
+sentient status   # Affiche l'état d'exécution
+sentient logs     # Affiche les logs en temps réel (Streamlit)
+sentient run      # Lance l'interface en mode debug (premier plan)
+```
+
+*(Si systemd est absent, comme sur macOS, Alpine ou certains conteneurs/WSL, le CLI basculera de manière transparente sur un système de gestion de processus par fichier PID).*
 
 ---
 
 ## 🔄 Mise à jour et Maintenance
 
-La cybersécurité évolue vite. Pour mettre à jour l'application, les templates de failles 0-day de Nuclei, et le modèle d'IA, exécutez le script de mise à jour inclus :
+Pour mettre à jour l'application, la base de signatures de vulnérabilités Nuclei et le modèle d'IA local (Ollama) :
 
 ```bash
-sudo /opt/sentient/update.sh
+# Si installé en mode root / global :
+sudo sentient update
+
+# Si installé en mode utilisateur standard :
+sentient update
 ```
 
 ---
