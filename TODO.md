@@ -138,7 +138,7 @@ Ce profil recherche la facilité de déploiement, l'automatisation et l'intégra
    * Planifier des audits automatiques réguliers (toutes les nuits, toutes les semaines) sur un périmètre donné. Le système envoie une alerte Slack/Discord/E-mail uniquement si de nouvelles failles d'une sévérité critique ou haute sont découvertes.
 5. **Authentification & Contrôle d'Accès (RBAC)** :
    * Protection de l'interface Streamlit par une couche d'authentification (compatible LDAP, OAuth2/OIDC, ou gestion locale SQLite) avec des rôles définis (ex: *Admin* pour lancer les scans, *Client* pour uniquement consulter les rapports dans le coffre-fort).
-6. **Lancement unifié Docker Compose (One-Click)** :
+6. **Lancement unifié Docker Compose (One-Click)** : [🟢 Implémenté]
    * Fournir un fichier `docker-compose.yml` orchestrant l'application Streamlit et une instance Ollama pré-configurée avec prise en charge du GPU pass-through (CUDA/ROCm/Vulkan).
    * *Bénéfice* : Déploiement instantané sans aucune dépendance Python ou système.
 7. **TUI d'installation interactive (terminal menu)** :
@@ -201,7 +201,7 @@ Ce profil recherche la facilité de déploiement, l'automatisation et l'intégra
 - [ ] **Traduction automatique** : Permettre la génération instantanée de rapports PDF en anglais, espagnol, allemand, etc. à l'aide d'agents de traduction IA.
 
 ### 6. 📦 Déploiement, DevOps & Facilité d'Installation
-- [ ] **Déploiement Docker Compose** : Écrire un fichier `docker-compose.yml` multi-conteneurs avec intégration automatique d'Ollama et de l'application avec accélération matérielle.
+- [x] **Déploiement Docker Compose** : Écrire un fichier `docker-compose.yml` multi-conteneurs avec intégration automatique d'Ollama et de l'application avec accélération matérielle.
 - [ ] **TUI (Text User Interface) d'installation** : Moderniser `install.sh` avec un menu terminal interactif pour guider l'utilisateur.
 - [ ] **Optimisation matérielle automatique** : Profiler le système (RAM/VRAM/GPU) pour auto-configurer Ollama et les taux de threads de Nuclei.
 - [ ] **Templates Terraform & Ansible (IaC)** : Développer des scripts pour instancier des instances d'audit dédiées dans le Cloud en quelques clics.

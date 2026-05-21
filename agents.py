@@ -1,6 +1,7 @@
 import json
 import ast
 import warnings
+import os
 
 # Suppress Pydantic v1/v2 mixing warnings from CrewAI executor
 warnings.filterwarnings("ignore", category=UserWarning, message=".*Mixing V1 models and V2 models.*")
@@ -39,7 +40,7 @@ search_tool = duckduckgo_search
 # Configuration du LLM Local via Langchain (Ollama)
 local_llm = Ollama(
     model="llama3.1:8b",
-    base_url="http://localhost:11434"
+    base_url=os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 )
 
 def run_cyber_crew(target_desc, nuclei_results, rag_context, language="Français"):

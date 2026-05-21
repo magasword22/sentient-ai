@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  # ===========================================================================
+  # Moteur d'IA Locale Ollama
+  # ===========================================================================
+  ollama:
+    # Image par défaut compatible CPU et GPU Nvidia
+    image: ollama/ollama:latest
+    container_name: sentient-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      # Persistance des modèles LLM téléchargés (ex: llama3.1)
+      - ollama_storage:/root/.ollama
+    restart: unless-stopped
+
+    # -------------------------------------------------------------------------
+    # OPTION A : POUR L'ACCÉLÉRATION GPU NVIDIA (NVIDIA CUDA)
+    # Décommentez les lignes ci-dessous si vous utilisez un GPU Nvidia
+    # (Nvidia Container Toolkit requis sur l'hôte)
+    # -------------------------------------------------------------------------
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+    # -------------------------------------------------------------------------
+    # OPTION B : POUR L'ACCÉLÉRATION GPU AMD (ROCm)
+    # Décommentez les lignes ci-dessous, commentez l'image "ollama:latest" 
+    # et la section d'Option A pour utiliser l'accélération sur carte graphique AMD.
+    # -------------------------------------------------------------------------
+    # image: ollama/ollama:rocm
+    # environment:
+    #   - HSA_OVERRIDE_GFX_VERSION=11.5.1
+    #   - HCC_AMDGPU_TARGET=gfx1151
+    # devices:
+    #   - "/dev/kfd:/dev/kfd"
+    #   - "/dev/dri:/dev/dri"
+
+  # ===========================================================================
+  # Application Web Streamlit (Sentient AI)
+  # ===========================================================================
+  sentient-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sentient-app
+    ports:
+      - "8501:8501"
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # PERSISTANCE DES DONNÉES
+      # Note : Si vous lancez le projet sur une nouvelle machine sans ces fichiers,
+      # créez-les d'abord vides sur l'hôte avec : touch audits.db report_config.json
+      - ./audits.db:/app/audits.db
+      - ./report_config.json:/app/report_config.json
+      # Dossiers de résultats
+      - ./reports:/app/reports
+      - ./rag_db:/app/rag_db
+      - ./assets:/app/assets
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+volumes:
+  ollama_storage:

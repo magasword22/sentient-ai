@@ -141,8 +141,9 @@ def get_system_telemetry():
     # 4. Ollama Status & Modèle
     ollama_connected = False
     ollama_model = "Non détecté"
+    ollama_base_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
     try:
-        r = requests.get("http://localhost:11434/api/tags", timeout=1.5)
+        r = requests.get(f"{ollama_base_url}/api/tags", timeout=1.5)
         if r.status_code == 200:
             ollama_connected = True
             models_data = r.json()
@@ -173,7 +174,8 @@ def get_system_telemetry():
         "vram_pct": vram_pct,
         "has_gpu": has_gpu,
         "ollama_connected": ollama_connected,
-        "ollama_model": ollama_model
+        "ollama_model": ollama_model,
+        "ollama_base_url": ollama_base_url
     }
 
 # -----------------------------------------------------------------------------
@@ -1260,9 +1262,9 @@ elif menu == "🖥️ Diagnostic & Performance":
         st.markdown("---")
         st.markdown("**Statut Ollama :**")
         if tel["ollama_connected"]:
-            st.markdown(f"🟢 **Service local actif** sur `http://localhost:11434`  \nModèle par défaut : `{tel['ollama_model']}`")
+            st.markdown(f"🟢 **Service actif** sur `{tel.get('ollama_base_url', 'http://localhost:11434')}`  \nModèle par défaut : `{tel['ollama_model']}`")
         else:
-            st.markdown("🔴 **Service local injoignable** ou éteint.")
+            st.markdown("🔴 **Service injoignable** ou éteint.")
             
     # Section Benchmark
     st.markdown("---")
@@ -1276,7 +1278,8 @@ elif menu == "🖥️ Diagnostic & Performance":
         models = []
         try:
             import requests
-            r = requests.get("http://localhost:11434/api/tags", timeout=2.0)
+            ollama_base_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+            r = requests.get(f"{ollama_base_url}/api/tags", timeout=2.0)
             if r.status_code == 200:
                 models_data = r.json()
                 models = [m.get("name") for m in models_data.get("models", [])]
@@ -1308,7 +1311,8 @@ elif menu == "🖥️ Diagnostic & Performance":
                     
                     start_time = time.time()
                     try:
-                        r = requests.post("http://localhost:11434/api/generate", json=payload, timeout=60.0)
+                        ollama_base_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+                        r = requests.post(f"{ollama_base_url}/api/generate", json=payload, timeout=60.0)
                         duration_elapsed = time.time() - start_time
                         
                         if r.status_code == 200:

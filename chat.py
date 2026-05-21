@@ -1,4 +1,5 @@
 from langchain_community.llms import Ollama
+import os
 try:
     from ddgs import DDGS
 except ImportError:
@@ -7,7 +8,7 @@ except ImportError:
 def get_llm():
     return Ollama(
         model="llama3.1:8b",
-        base_url="http://localhost:11434"
+        base_url=os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
     )
 
 def stream_chat_response(report_md, chat_history, query, use_web=False):
