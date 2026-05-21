@@ -26,6 +26,156 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+def get_system_telemetry():
+    """Récupère les informations système en temps réel pour le CPU, RAM et GPU."""
+    import os
+    import subprocess
+    import requests
+    
+    # 1. Charge CPU
+    cpu_count = os.cpu_count() or 1
+    try:
+        load1, load5, load15 = os.getloadavg()
+    except Exception:
+        load1, load5, load15 = 0.0, 0.0, 0.0
+    cpu_pct = (load1 / cpu_count) * 100.0
+    if cpu_pct > 100.0:
+        cpu_pct = 100.0
+
+    # 2. Mémoire vive (RAM)
+    ram_total = 0.0
+    ram_used = 0.0
+    ram_pct = 0.0
+    if os.path.exists('/proc/meminfo'):
+        try:
+            with open('/proc/meminfo', 'r') as f:
+                lines = f.readlines()
+            mem_info = {}
+            for line in lines:
+                parts = line.split(':')
+                if len(parts) == 2:
+                    mem_info[parts[0].strip()] = int(parts[1].replace('kB', '').strip())
+            total = mem_info.get('MemTotal', 0)
+            available = mem_info.get('MemAvailable', 0)
+            used = total - available
+            ram_pct = (used / total) * 100 if total > 0 else 0
+            ram_total = total / (1024 * 1024) # GB
+            ram_used = used / (1024 * 1024) # GB
+        except Exception:
+            pass
+
+    # 3. GPU Info
+    gpu_model = "CPU Fallback"
+    gpu_util = 0.0
+    vram_total = 0.0
+    vram_used = 0.0
+    vram_pct = 0.0
+    has_gpu = False
+
+    # Détecter le GPU via lspci
+    try:
+        result = subprocess.run(["lspci"], capture_output=True, text=True)
+        if result.returncode == 0:
+            for line in result.stdout.split('\n'):
+                if any(word in line.lower() for word in ["vga", "3d", "display"]):
+                    if "nvidia" in line.lower():
+                        gpu_model = "NVIDIA GPU"
+                        has_gpu = True
+                        parts = line.split("controller:")
+                        if len(parts) > 1:
+                            gpu_model = parts[1].strip()
+                        break
+                    elif "amd" in line.lower() or "ati" in line.lower():
+                        gpu_model = "AMD Radeon GPU"
+                        has_gpu = True
+                        if "strix halo" in line.lower() or "8050s" in line.lower() or "8060s" in line.lower():
+                            gpu_model = "AMD Strix Halo"
+                        else:
+                            parts = line.split("controller:")
+                            if len(parts) > 1:
+                                gpu_model = parts[1].strip()
+                        break
+    except Exception:
+        pass
+
+    # Récupérer les métriques d'utilisation du GPU
+    if has_gpu:
+        if "nvidia" in gpu_model.lower():
+            try:
+                res = subprocess.run([
+                    "nvidia-smi", 
+                    "--query-gpu=name,memory.total,memory.used,utilization.gpu", 
+                    "--format=csv,noheader,nounits"
+                ], capture_output=True, text=True)
+                if res.returncode == 0:
+                    parts = res.stdout.strip().split(',')
+                    if len(parts) >= 4:
+                        gpu_model = parts[0].strip()
+                        vram_total = float(parts[1].strip()) / 1024.0
+                        vram_used = float(parts[2].strip()) / 1024.0
+                        vram_pct = (vram_used / vram_total) * 100.0 if vram_total > 0 else 0
+                        gpu_util = float(parts[3].strip())
+            except Exception:
+                pass
+        else:
+            # AMD (via sysfs)
+            for card in ["card1", "card0", "card2"]:
+                sys_path = f"/sys/class/drm/{card}/device"
+                if os.path.exists(sys_path) and os.path.exists(f"{sys_path}/mem_info_vram_total"):
+                    try:
+                        with open(f"{sys_path}/mem_info_vram_total", "r") as f:
+                            v_tot = int(f.read().strip())
+                        with open(f"{sys_path}/mem_info_vram_used", "r") as f:
+                            v_used = int(f.read().strip())
+                        with open(f"{sys_path}/gpu_busy_percent", "r") as f:
+                            g_busy = int(f.read().strip())
+                        
+                        vram_total = v_tot / (1024 * 1024 * 1024)
+                        vram_used = v_used / (1024 * 1024 * 1024)
+                        vram_pct = (vram_used / vram_total) * 100.0 if vram_total > 0 else 0
+                        gpu_util = float(g_busy)
+                        break
+                    except Exception:
+                        pass
+    
+    # 4. Ollama Status & Modèle
+    ollama_connected = False
+    ollama_model = "Non détecté"
+    try:
+        r = requests.get("http://localhost:11434/api/tags", timeout=1.5)
+        if r.status_code == 200:
+            ollama_connected = True
+            models_data = r.json()
+            models = models_data.get("models", [])
+            if models:
+                names = [m.get("name") for m in models]
+                ollama_model = names[0]
+                for n in names:
+                    if "llama3" in n:
+                        ollama_model = n
+                        break
+    except Exception:
+        pass
+
+    return {
+        "cpu_count": cpu_count,
+        "cpu_pct": cpu_pct,
+        "load_1m": load1,
+        "load_5m": load5,
+        "load_15m": load15,
+        "ram_total": ram_total,
+        "ram_used": ram_used,
+        "ram_pct": ram_pct,
+        "gpu_model": gpu_model,
+        "gpu_util": gpu_util,
+        "vram_total": vram_total,
+        "vram_used": vram_used,
+        "vram_pct": vram_pct,
+        "has_gpu": has_gpu,
+        "ollama_connected": ollama_connected,
+        "ollama_model": ollama_model
+    }
+
 # -----------------------------------------------------------------------------
 # Style CSS Premium (Thème Slate/Zinc SaaS)
 # -----------------------------------------------------------------------------
@@ -138,32 +288,54 @@ with st.sidebar:
             "📂 Centre de Rapports", 
             "💬 Assistant Virtuel",
             "🧠 Base de Connaissances (RAG)", 
+            "🖥️ Diagnostic & Performance",
             "⚙️ Configuration"
         ],
         label_visibility="collapsed"
     )
     
-    st.markdown("<br><br><br><br><br><br>", unsafe_allow_html=True)
+    st.markdown("<br><br><br><br>", unsafe_allow_html=True)
     st.markdown("---")
-    # Section Télémétrie Système
-    st.markdown("""
+    
+    # Section Télémétrie Système dynamique
+    tel = get_system_telemetry()
+    
+    if tel["ollama_connected"]:
+        ollama_dot = '<span class="dot"></span>'
+        ollama_status = '<span style="color:#22c55e;">Connecté</span>'
+    else:
+        ollama_dot = '<span class="dot dot-warning"></span>'
+        ollama_status = '<span style="color:#ef4444;">Hors ligne</span>'
+        
+    gpu_label = tel["gpu_model"]
+    # Truncate model name if too long to avoid line wraps
+    if len(gpu_label) > 18:
+        gpu_label = gpu_label[:15] + "..."
+        
+    vram_str = f"{tel['vram_used']:.1f} / {tel['vram_total']:.1f} GB" if tel["vram_total"] > 0 else "N/A"
+    
+    model_str = tel["ollama_model"]
+    if len(model_str) > 18:
+        model_str = model_str[:15] + "..."
+        
+    st.markdown(f"""
         <div class="telemetry-box">
             <div style="margin-bottom: 10px; font-weight: bold; color: #e4e4e7;">Télémétrie Système</div>
             <div class="telemetry-item">
-                <span><span class="dot"></span>Ollama</span>
-                <span style="color:#22c55e;">Connecté</span>
+                <span>{ollama_dot}Ollama</span>
+                {ollama_status}
             </div>
             <div class="telemetry-item">
                 <span>GPU Actif</span>
-                <span style="color:#e4e4e7;">RTX 3060</span>
+                <span style="color:#e4e4e7;" title="{tel["gpu_model"]}">{gpu_label}</span>
             </div>
             <div class="telemetry-item">
                 <span>VRAM Usage</span>
-                <span style="color:#eab308;">4.8 / 12 GB</span>
+                <span style="color:#eab308;">{vram_str}</span>
             </div>
             <div class="telemetry-item">
                 <span>Modèle IA</span>
-                <span style="color:#e4e4e7;">Llama 3.1 8B Q4</span>
+                <span style="color:#e4e4e7;" title="{tel["ollama_model"]}">{model_str}</span>
             </div>
         </div>
     """, unsafe_allow_html=True)
@@ -882,6 +1054,194 @@ elif menu == "🧠 Base de Connaissances (RAG)":
                     st.warning("Aucun texte exploitable n'a été trouvé dans ces fichiers.")
         else:
             st.error("Veuillez sélectionner au moins un document.")
+
+elif menu == "🖥️ Diagnostic & Performance":
+    st.markdown("<h2>🖥️ Diagnostic Matériel & Performance IA</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='color:#a1a1aa;'>Surveillez l'utilisation des ressources système en temps réel et testez la performance de l'IA locale.</p><br>", unsafe_allow_html=True)
+    
+    tel = get_system_telemetry()
+    
+    # Section Télémétrie Matérielle
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("""
+        <div style="background-color: #18181b; border: 1px solid #27272a; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+            <h3 style="margin-top:0; color:#fafafa; font-size:1.2rem; border-bottom:1px solid #27272a; padding-bottom:10px;">💾 Système & Mémoire</h3>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # CPU
+        st.markdown(f"**Processeur (CPU) :** {tel['cpu_count']} Coeurs physiques / logiques")
+        st.progress(min(max(tel['cpu_pct'] / 100.0, 0.0), 1.0))
+        st.markdown(f"<p style='text-align:right; font-size:0.85rem; color:#a1a1aa; margin-top:-10px;'>Charge CPU estimée : <b>{tel['cpu_pct']:.1f}%</b></p>", unsafe_allow_html=True)
+        
+        # Load averages
+        st.markdown("**Moyennes de charge (Load Averages) :**")
+        col_l1, col_l2, col_l3 = st.columns(3)
+        with col_l1:
+            st.metric("1 min", f"{tel['load_1m']:.2f}")
+        with col_l2:
+            st.metric("5 min", f"{tel['load_5m']:.2f}")
+        with col_l3:
+            st.metric("15 min", f"{tel['load_15m']:.2f}")
+            
+        # RAM
+        st.markdown(f"**Mémoire Système (RAM) :** {tel['ram_used']:.1f} GB / {tel['ram_total']:.1f} GB")
+        st.progress(min(max(tel['ram_pct'] / 100.0, 0.0), 1.0))
+        st.markdown(f"<p style='text-align:right; font-size:0.85rem; color:#a1a1aa; margin-top:-10px;'>Utilisation RAM : <b>{tel['ram_pct']:.1f}%</b></p>", unsafe_allow_html=True)
+
+    with col2:
+        st.markdown("""
+        <div style="background-color: #18181b; border: 1px solid #27272a; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+            <h3 style="margin-top:0; color:#fafafa; font-size:1.2rem; border-bottom:1px solid #27272a; padding-bottom:10px;">🎮 Accélération Graphique & IA</h3>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if not tel["has_gpu"]:
+            st.warning("⚠️ Aucun GPU compatible détecté (NVIDIA CUDA ou AMD ROCm). L'exécution locale s'effectue sur le processeur (CPU), ce qui ralentira significativement la vitesse de traitement de l'IA.")
+            st.markdown(f"**Dispositif principal détecté :** {tel['gpu_model']}")
+        else:
+            st.success(f"✅ GPU compatible détecté : **{tel['gpu_model']}**")
+            
+            # GPU Utilization
+            st.markdown(f"**Charge du Processeur Graphique (GPU) :**")
+            st.progress(min(max(tel['gpu_util'] / 100.0, 0.0), 1.0))
+            st.markdown(f"<p style='text-align:right; font-size:0.85rem; color:#a1a1aa; margin-top:-10px;'>Activité GPU : <b>{tel['gpu_util']:.1f}%</b></p>", unsafe_allow_html=True)
+            
+            # VRAM Usage
+            if tel["vram_total"] > 0:
+                st.markdown(f"**Mémoire Vidéo Dédiée (VRAM) :** {tel['vram_used']:.2f} GB / {tel['vram_total']:.2f} GB")
+                st.progress(min(max(tel['vram_pct'] / 100.0, 0.0), 1.0))
+                st.markdown(f"<p style='text-align:right; font-size:0.85rem; color:#a1a1aa; margin-top:-10px;'>Utilisation VRAM : <b>{tel['vram_pct']:.1f}%</b></p>", unsafe_allow_html=True)
+            else:
+                st.info("Mémoire VRAM indisponible ou partagée dynamiquement.")
+                
+        # Status Ollama
+        st.markdown("---")
+        st.markdown("**Statut Ollama :**")
+        if tel["ollama_connected"]:
+            st.markdown(f"🟢 **Service local actif** sur `http://localhost:11434`  \nModèle par défaut : `{tel['ollama_model']}`")
+        else:
+            st.markdown("🔴 **Service local injoignable** ou éteint.")
+            
+    # Section Benchmark
+    st.markdown("---")
+    st.markdown("### ⚡ Benchmark IA (Test de Vitesse de l'IA locale)")
+    st.markdown("Mesurez précisément la vitesse de génération (tokens/seconde) de vos modèles de langage locaux chargés sur Ollama.")
+    
+    if not tel["ollama_connected"]:
+        st.error("Le service Ollama est hors ligne. Impossible de lancer le test de performance.")
+    else:
+        # Récupérer la liste des modèles
+        models = []
+        try:
+            import requests
+            r = requests.get("http://localhost:11434/api/tags", timeout=2.0)
+            if r.status_code == 200:
+                models_data = r.json()
+                models = [m.get("name") for m in models_data.get("models", [])]
+        except Exception:
+            pass
+            
+        if not models:
+            st.warning("Aucun modèle n'est actuellement installé dans Ollama.")
+        else:
+            with st.form("benchmark_form"):
+                col_bm1, col_bm2 = st.columns([1, 2])
+                with col_bm1:
+                    selected_model = st.selectbox("Modèle à tester", models)
+                with col_bm2:
+                    test_prompt = st.text_input("Prompt de test", value="Explique-moi la théorie de la relativité générale en 3 phrases simples.")
+                    
+                submitted_bm = st.form_submit_button("🚀 Lancer le Test de Vitesse", type="primary")
+                
+            if submitted_bm:
+                with st.spinner("Exécution du benchmark de génération..."):
+                    import time
+                    import requests
+                    
+                    payload = {
+                        "model": selected_model,
+                        "prompt": test_prompt,
+                        "stream": False
+                    }
+                    
+                    start_time = time.time()
+                    try:
+                        r = requests.post("http://localhost:11434/api/generate", json=payload, timeout=60.0)
+                        duration_elapsed = time.time() - start_time
+                        
+                        if r.status_code == 200:
+                            res_data = r.json()
+                            
+                            # Extraction des métriques
+                            response_text = res_data.get("response", "")
+                            
+                            eval_count = res_data.get("eval_count", 0)
+                            eval_duration_ns = res_data.get("eval_duration", 0)
+                            
+                            prompt_eval_count = res_data.get("prompt_eval_count", 0)
+                            prompt_eval_duration_ns = res_data.get("prompt_eval_duration", 0)
+                            
+                            total_duration_ns = res_data.get("total_duration", 0)
+                            
+                            # Calcul des vitesses
+                            # Génération (eval)
+                            if eval_duration_ns > 0:
+                                tps = eval_count / (eval_duration_ns / 1e9)
+                            elif duration_elapsed > 0:
+                                # Fallback si pas de metrics détaillés
+                                tps = eval_count / duration_elapsed
+                            else:
+                                tps = 0.0
+                                
+                            # Prompt Evaluation (analyse de prompt)
+                            if prompt_eval_duration_ns > 0:
+                                prompt_tps = prompt_eval_count / (prompt_eval_duration_ns / 1e9)
+                            else:
+                                prompt_tps = 0.0
+                                
+                            total_sec = total_duration_ns / 1e9 if total_duration_ns > 0 else duration_elapsed
+                            
+                            # Affichage des métriques de performance
+                            st.success("Test terminé avec succès !")
+                            
+                            col_m1, col_m2, col_m3 = st.columns(3)
+                            with col_m1:
+                                st.metric("Débit Génération", f"{tps:.2f} tok/s", help="Vitesse d'écriture de la réponse par l'IA.")
+                            with col_m2:
+                                st.metric("Vitesse d'Analyse Prompt", f"{prompt_tps:.2f} tok/s" if prompt_tps > 0 else "N/A", help="Vitesse d'assimilation de votre prompt initial par le modèle.")
+                            with col_m3:
+                                st.metric("Temps de Réponse Global", f"{total_sec:.2f} s")
+                                
+                            # Diagnostic de Performance
+                            if tps >= 25.0:
+                                st.markdown("""
+                                <div style="background-color: rgba(34, 197, 94, 0.15); border: 1px solid #22c55e; border-radius: 8px; padding: 12px; color: #22c55e; font-weight: bold; margin-bottom: 15px;">
+                                    🚀 Performances exceptionnelles (Accélération matérielle active, optimal pour l'audit et l'analyse de vulnérabilités en temps réel)
+                                </div>
+                                """, unsafe_allow_html=True)
+                            elif tps >= 10.0:
+                                st.markdown("""
+                                <div style="background-color: rgba(234, 179, 8, 0.15); border: 1px solid #eab308; border-radius: 8px; padding: 12px; color: #eab308; font-weight: bold; margin-bottom: 15px;">
+                                    ⚡ Performances correctes (Accélération GPU active, adapté pour l'usage quotidien)
+                                </div>
+                                """, unsafe_allow_html=True)
+                            else:
+                                st.markdown("""
+                                <div style="background-color: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; border-radius: 8px; padding: 12px; color: #ef4444; font-weight: bold; margin-bottom: 15px;">
+                                    ⚠️ Performances lentes (Exécution sur CPU ou ressources GPU limitées. L'analyse RAG et les audits de rapports volumineux prendront plus de temps)
+                                </div>
+                                """, unsafe_allow_html=True)
+                                
+                            with st.expander("📝 Réponse Générée par le Modèle", expanded=True):
+                                st.write(response_text)
+                                
+                        else:
+                            st.error(f"Erreur d'Ollama (HTTP {r.status_code}) : {r.text}")
+                    except Exception as e:
+                        st.error(f"Une erreur s'est produite lors de l'appel à l'API d'Ollama : {e}")
 
 elif menu == "⚙️ Configuration":
     st.markdown("<h2>Configuration Globale</h2>", unsafe_allow_html=True)
