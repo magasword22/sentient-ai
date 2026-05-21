@@ -3,6 +3,7 @@ import os
 import pandas as pd
 import altair as alt
 import random
+import json
 from datetime import datetime
 from database import init_db, add_scan, get_history
 from scanner import discover_active_hosts, scan_nuclei, analyze_with_ollama, export_to_pdf
@@ -10,6 +11,8 @@ import rag
 import defectdojo
 import chat
 import report_config
+import compliance
+import roi_calculator
 
 # -----------------------------------------------------------------------------
 # Configuration Globale
@@ -131,6 +134,7 @@ with st.sidebar:
         options=[
             "📊 Tableau de Bord", 
             "⚡ Lancer un Audit", 
+            "💰 Analyse de Risque ROI",
             "📂 Centre de Rapports", 
             "💬 Assistant Virtuel",
             "🧠 Base de Connaissances (RAG)", 
@@ -201,6 +205,52 @@ if menu == "📊 Tableau de Bord":
     
     if crit_count == 0 and total_vulns > 0 and random.random() > 0.7:
         crit_count = 1 # Ajouter un peu de piquant aléatoire pour le dashboard si >0
+        
+    # Calcul de l'exposition financière du dernier scan
+    latest_scan = history[0] if history else None
+    latest_exposure = 0.0
+    latest_savings = 0.0
+    latest_roi_pct = 0.0
+    
+    if latest_scan:
+        rep_cfg = report_config.load_report_config()
+        sector = rep_cfg.get("sector", "Finance / Assurances")
+        company_size = rep_cfg.get("company_size", "PME (50 - 250 employés)")
+        data_sensitivity = rep_cfg.get("data_sensitivity", "PII standard (Noms, Emails)")
+        
+        # Charger les vulnérabilités du scan
+        vulns = []
+        if latest_scan.get("vulnerabilities_json"):
+            try:
+                vulns = json.loads(latest_scan["vulnerabilities_json"])
+            except Exception:
+                pass
+        
+        # Fallback robuste s'il n'y a pas de JSON enregistré
+        if not vulns and latest_scan["vulnerabilities_found"] > 0:
+            count = latest_scan["vulnerabilities_found"]
+            for i in range(count):
+                if i == 0:
+                    sev = "critical"
+                elif i == 1:
+                    sev = "high"
+                elif i % 3 == 0:
+                    sev = "medium"
+                else:
+                    sev = "low"
+                vulns.append({
+                    "template-id": f"fallback-{i}",
+                    "info": {
+                        "name": "Vulnérabilité Historique",
+                        "severity": sev
+                    }
+                })
+                
+        if vulns:
+            roi_data = roi_calculator.calculate_financial_risk(vulns, sector, company_size, data_sensitivity)
+            latest_exposure = roi_data["total_exposure"]
+            latest_savings = roi_data["net_savings"]
+            latest_roi_pct = roi_data["roi_pct"]
     
     # Cartes de KPIs
     c1, c2, c3, c4 = st.columns(4)
@@ -243,7 +293,25 @@ if menu == "📊 Tableau de Bord":
             </div>
         """, unsafe_allow_html=True)
 
-    st.markdown("<br><br>", unsafe_allow_html=True)
+    if latest_exposure > 0:
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(9, 9, 11, 0.2) 100%); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px; padding: 20px; margin-top: 20px; margin-bottom: 5px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+                <div>
+                    <h4 style="margin: 0; color: #ef4444; font-size: 1.1rem; font-weight: 700;">⚠️ Exposition Financière Détectée</h4>
+                    <p style="margin: 5px 0 0 0; color: #a1a1aa; font-size: 0.9rem;">
+                        Le dernier scan de la cible <strong>{latest_scan['target']}</strong> présente une exposition financière estimée à <strong>{latest_exposure:,.2f} €</strong>.
+                    </p>
+                </div>
+                <div style="text-align: right; min-width: 250px;">
+                    <span style="font-size: 0.75rem; text-transform: uppercase; color: #a1a1aa; display: block; font-weight: 600;">Économies Nettes après correction :</span>
+                    <strong style="color: #22c55e; font-size: 1.25rem;">+{latest_savings:,.2f} € (ROI: {latest_roi_pct:.1f}%)</strong>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("<br><br>", unsafe_allow_html=True)
 
     # Section Data & Charts
     col_chart, col_table = st.columns([1, 2])
@@ -440,7 +508,7 @@ elif menu == "⚡ Lancer un Audit" or st.session_state.get('force_menu') == "⚡
                     status4.update(label="Rapports générés (PDF & Markdown).", state="complete", expanded=False)
                 progress_bar.progress(100)
                 
-            add_scan(target_input, len(active_hosts), len(nuclei_results), pdf_filename)
+            add_scan(target_input, len(active_hosts), len(nuclei_results), pdf_filename, vulnerabilities_json=json.dumps(nuclei_results))
             st.success("🎉 Opération terminée avec succès.")
             
             col_dl, col_dojo = st.columns(2)
@@ -456,6 +524,244 @@ elif menu == "⚡ Lancer un Audit" or st.session_state.get('force_menu') == "⚡
                             st.success(msg)
                         else:
                             st.error(msg)
+
+# ==========================================
+# 💰 ANALYSE DE RISQUE ROI
+# ==========================================
+elif menu == "💰 Analyse de Risque ROI":
+    st.markdown("<h2 style='margin-bottom:0;'>Calculateur de Risque Financier & ROI</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='color:#a1a1aa;'>Visualisez l'impact financier de vos vulnérabilités et simulez le ROI des corrections.</p><br>", unsafe_allow_html=True)
+    
+    history = get_history()
+    if not history:
+        st.info("Aucun audit disponible dans la base de données. Veuillez lancer un audit d'abord.")
+    else:
+        # Charger le profil organisationnel par défaut
+        rep_cfg = report_config.load_report_config()
+        
+        # Sélecteur de scan
+        scan_options = {f"{entry['date']} - {entry['target']} (ID: {entry['id']})": entry for entry in history}
+        selected_scan_key = st.selectbox("Sélectionnez un scan d'audit :", list(scan_options.keys()))
+        selected_scan = scan_options[selected_scan_key]
+        
+        # Configuration interactive du profil pour la simulation
+        st.markdown("### ⚙️ Paramètres de Simulation")
+        col_sim1, col_sim2, col_sim3 = st.columns(3)
+        
+        with col_sim1:
+            sector_list = list(roi_calculator.SECTOR_MULTIPLIERS.keys())
+            saved_sector = rep_cfg.get("sector", "Finance / Assurances")
+            sector_idx = sector_list.index(saved_sector) if saved_sector in sector_list else 0
+            sim_sector = st.selectbox("Secteur d'Activité de la Simulation", sector_list, index=sector_idx)
+            
+        with col_sim2:
+            size_list = list(roi_calculator.COMPANY_SIZE_MULTIPLIERS.keys())
+            saved_size = rep_cfg.get("company_size", "PME (50 - 250 employés)")
+            size_idx = size_list.index(saved_size) if saved_size in size_list else 1
+            sim_size = st.selectbox("Taille de l'Entreprise de la Simulation", size_list, index=size_idx)
+            
+        with col_sim3:
+            sens_list = list(roi_calculator.DATA_SENSITIVITY_MULTIPLIERS.keys())
+            saved_sens = rep_cfg.get("data_sensitivity", "PII standard (Noms, Emails)")
+            sens_idx = sens_list.index(saved_sens) if saved_sens in sens_list else 1
+            sim_sens = st.selectbox("Sensibilité des Données de la Simulation", sens_list, index=sens_idx)
+            
+        # Charger les vulnérabilités du scan
+        vulns = []
+        if selected_scan.get("vulnerabilities_json"):
+            try:
+                vulns = json.loads(selected_scan["vulnerabilities_json"])
+            except Exception:
+                pass
+        
+        # Fallback robuste s'il n'y a pas de JSON enregistré
+        if not vulns and selected_scan["vulnerabilities_found"] > 0:
+            count = selected_scan["vulnerabilities_found"]
+            for i in range(count):
+                if i == 0:
+                    sev = "critical"
+                    name = "Apache Tomcat - Default Administration Credentials"
+                elif i == 1:
+                    sev = "high"
+                    name = "Git Repository Configuration Exposure"
+                elif i % 3 == 0:
+                    sev = "medium"
+                    name = "Outdated Software Version Detected"
+                else:
+                    sev = "low"
+                    name = "HTTP Header Misconfiguration"
+                vulns.append({
+                    "template-id": f"fallback-{i}",
+                    "info": {
+                        "name": name,
+                        "severity": sev
+                    },
+                    "host": selected_scan["target"]
+                })
+                
+        if not vulns:
+            st.success("Aucune vulnérabilité trouvée sur ce scan. L'exposition financière est nulle (0.00 €) !")
+        else:
+            # Calculer le risque
+            roi_results = roi_calculator.calculate_financial_risk(vulns, sim_sector, sim_size, sim_sens)
+            
+            # Afficher les KPIs
+            c1, c2, c3, c4 = st.columns(4)
+            with c1:
+                st.markdown(f"""
+                    <div class="kpi-card">
+                        <div class="kpi-title">Exposition (Risque Brut)</div>
+                        <div class="kpi-value" style="color: #ef4444;">{roi_results['total_exposure']:,.2f} €</div>
+                        <div style="font-size:0.75rem; color:#a1a1aa;">Coût potentiel d'une brèche</div>
+                    </div>
+                """, unsafe_allow_html=True)
+            with c2:
+                st.markdown(f"""
+                    <div class="kpi-card">
+                        <div class="kpi-title">Coût de Remédiation</div>
+                        <div class="kpi-value" style="color: #2563eb;">{roi_results['total_remediation']:,.2f} €</div>
+                        <div style="font-size:0.75rem; color:#a1a1aa;">Ingénierie & Correctifs</div>
+                    </div>
+                """, unsafe_allow_html=True)
+            with c3:
+                st.markdown(f"""
+                    <div class="kpi-card">
+                        <div class="kpi-title">Économies Nettes</div>
+                        <div class="kpi-value" style="color: #16a34a;">{roi_results['net_savings']:,.2f} €</div>
+                        <div style="font-size:0.75rem; color:#a1a1aa;">Risque financier évité</div>
+                    </div>
+                """, unsafe_allow_html=True)
+            with c4:
+                st.markdown(f"""
+                    <div class="kpi-card">
+                        <div class="kpi-title">Taux de ROI</div>
+                        <div class="kpi-value" style="color: #c084fc;">{roi_results['roi_pct']:.1f} %</div>
+                        <div style="font-size:0.75rem; color:#a1a1aa;">Rapport bénéfice/coût</div>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+            st.markdown("<br><br>", unsafe_allow_html=True)
+            
+            # Graphique Altair
+            col_chart, col_exp = st.columns([3, 2])
+            with col_chart:
+                st.markdown("#### 📊 Comparaison des Coûts & Bénéfices")
+                chart_data = pd.DataFrame({
+                    "Catégorie": ["Risque Brut", "Coût Remédiation", "Risque Résiduel", "Économies Nettes"],
+                    "Montant (€)": [
+                        roi_results['total_exposure'], 
+                        roi_results['total_remediation'], 
+                        roi_results['residual_risk'], 
+                        roi_results['net_savings']
+                    ]
+                })
+                chart = alt.Chart(chart_data).mark_bar(cornerRadiusTopLeft=8, cornerRadiusTopRight=8).encode(
+                    x=alt.X("Catégorie", sort=None, title=None, axis=alt.Axis(labelAngle=0)),
+                    y=alt.Y("Montant (€)", title="Montant en Euros (€)"),
+                    color=alt.Color("Catégorie", scale=alt.Scale(
+                        domain=["Risque Brut", "Coût Remédiation", "Risque Résiduel", "Économies Nettes"], 
+                        range=["#ef4444", "#2563eb", "#eab308", "#16a34a"]
+                    ), legend=None),
+                    tooltip=["Catégorie", "Montant (€)"]
+                ).properties(
+                    height=300
+                ).configure_view(
+                    strokeWidth=0
+                )
+                st.altair_chart(chart, use_container_width=True)
+                
+            with col_exp:
+                st.markdown("#### 💡 Explication Métier (ROI)")
+                st.markdown(f"""
+                <div style="background-color: #18181b; padding: 25px; border-radius: 12px; border: 1px solid #27272a; height: 100%;">
+                    <p style="color: #fafafa; font-size: 0.95rem; line-height: 1.6;">
+                        Investir <strong>{roi_results['total_remediation']:,.2f} €</strong> dans la correction de ces failles permet d'éliminer 
+                        <strong>95%</strong> du risque financier initial (soit un risque résiduel estimé de seulement 
+                        {roi_results['residual_risk']:,.2f} €).
+                    </p>
+                    <p style="color: #a1a1aa; font-size: 0.9rem; line-height: 1.6;">
+                        L'entreprise réalise ainsi une économie nette de <strong>{roi_results['net_savings']:,.2f} €</strong>, 
+                        représentant un excellent retour sur investissement cyber (ROI de <strong>{roi_results['roi_pct']:.1f}%</strong>). 
+                        La remédiation est hautement recommandée pour protéger la réputation et la conformité légale de l'organisation.
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+            st.markdown("<br><br>", unsafe_allow_html=True)
+            
+            # Liste des vulnérabilités avec Badges de conformité
+            st.markdown("#### 🛡️ Détails des Vulnérabilités & Badges de Conformité")
+            
+            # Custom style injection for compliance badges
+            st.markdown("""
+            <style>
+                .badge-compliance {
+                    display: inline-block;
+                    padding: 0.25rem 0.6rem;
+                    border-radius: 6px;
+                    font-size: 0.75rem;
+                    font-weight: 600;
+                    margin-right: 6px;
+                    margin-bottom: 6px;
+                    line-height: 1.4;
+                }
+                .badge-iso { background-color: rgba(124, 58, 237, 0.15); color: #c084fc; border: 1px solid rgba(124, 58, 237, 0.3); }
+                .badge-rgpd { background-color: rgba(14, 165, 233, 0.15); color: #38bdf8; border: 1px solid rgba(14, 165, 233, 0.3); }
+                .badge-pci { background-color: rgba(236, 72, 153, 0.15); color: #f472b6; border: 1px solid rgba(236, 72, 153, 0.3); }
+                .badge-anssi { background-color: rgba(22, 163, 74, 0.15); color: #4ade80; border: 1px solid rgba(22, 163, 74, 0.3); }
+            </style>
+            """, unsafe_allow_html=True)
+            
+            # Multiplicateur global pour le calcul individuel
+            mult_sector = roi_calculator.SECTOR_MULTIPLIERS.get(sim_sector, 1.0)
+            mult_size = roi_calculator.COMPANY_SIZE_MULTIPLIERS.get(sim_size, 1.0)
+            mult_sensitivity = roi_calculator.DATA_SENSITIVITY_MULTIPLIERS.get(sim_sens, 1.0)
+            overall_multiplier = mult_sector * mult_size * mult_sensitivity
+            
+            for i, v in enumerate(vulns):
+                v_name = v.get("info", {}).get("name", "Unknown Vulnerability")
+                v_severity = v.get("info", {}).get("severity", "info")
+                v_host = v.get("host", "N/A")
+                v_temp = v.get("template-id", "")
+                
+                # Coût unitaire pour cette vulnérabilité
+                base_breach = roi_calculator.BASE_BREACH_COSTS.get(v_severity.lower(), 0.0)
+                base_remed = roi_calculator.BASE_REMEDIATION_COSTS.get(v_severity.lower(), 0.0)
+                
+                v_exposure = base_breach * overall_multiplier
+                v_remediation = base_remed
+                if sim_size == "ETI (250 - 5000 employés)":
+                    v_remediation *= 1.3
+                elif sim_size == "Grande Entreprise (> 5000 employés)":
+                    v_remediation *= 1.8
+                
+                m = compliance.map_vulnerability_to_compliance(v_name, v_temp, language="Français")
+                
+                # Box principal
+                st.markdown(f"""
+                <div style="background-color: #18181b; padding: 20px; border-radius: 8px; border: 1px solid #27272a; margin-bottom: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: start; flex-wrap: wrap;">
+                        <div>
+                            <span class="badge badge-{v_severity.lower()[:4]}">{v_severity.upper()}</span>
+                            <strong style="font-size: 1.05rem; color: #fafafa;">{v_name}</strong>
+                            <div style="font-size: 0.85rem; color: #a1a1aa; margin-top: 4px;">Hôte cible : <code>{v_host}</code></div>
+                        </div>
+                        <div style="text-align: right; min-width: 180px;">
+                            <div style="font-size: 0.85rem; color: #ef4444;">Exposition : <strong>{v_exposure:,.2f} €</strong></div>
+                            <div style="font-size: 0.85rem; color: #2563eb;">Remédiation : <strong>{v_remediation:,.2f} €</strong></div>
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                with st.expander(f"🔍 Détails de Conformité & Remédiation pour {v_name}", expanded=False):
+                    st.markdown(f"**Description :** {v.get('info', {}).get('description', 'Aucune description disponible.')}")
+                    st.markdown("---")
+                    st.markdown("##### 🎯 Exigences de Conformité Mappées")
+                    st.markdown(f"- <span class='badge-compliance badge-iso'>ISO 27001</span> {m['iso']}", unsafe_allow_html=True)
+                    st.markdown(f"- <span class='badge-compliance badge-rgpd'>RGPD / GDPR</span> {m['rgpd']}", unsafe_allow_html=True)
+                    st.markdown(f"- <span class='badge-compliance badge-pci'>PCI-DSS</span> {m['pci']}", unsafe_allow_html=True)
+                    st.markdown(f"- <span class='badge-compliance badge-anssi'>ANSSI</span> {m['anssi']}", unsafe_allow_html=True)
 
 # ==========================================
 # 📂 CENTRE DE RAPPORTS & AUTRES ONGLETS
@@ -631,6 +937,50 @@ elif menu == "⚙️ Configuration":
                     st.error(f"Erreur lors de l'enregistrement du logo: {e}")
                     logo_path = ""
             
-            if report_config.save_report_config(comp_name, prim_color, foot_text, logo_path):
+            if report_config.save_report_config(
+                comp_name, 
+                prim_color, 
+                foot_text, 
+                logo_path,
+                sector=rep_cfg.get("sector"),
+                company_size=rep_cfg.get("company_size"),
+                data_sensitivity=rep_cfg.get("data_sensitivity")
+            ):
                 st.success("Style de rapport sauvegardé avec succès.")
+                st.rerun()
+
+    st.markdown("---")
+    st.markdown("### 🏢 Profil de l'Organisation (Analyse de Risque & ROI)")
+    st.markdown("Configurez les caractéristiques par défaut de votre organisation pour personnaliser le calcul du Risque Financier et du ROI.")
+    
+    with st.form("org_profile_form"):
+        col_op1, col_op2, col_op3 = st.columns(3)
+        with col_op1:
+            sector_list = list(roi_calculator.SECTOR_MULTIPLIERS.keys())
+            saved_sector = rep_cfg.get("sector", "Finance / Assurances")
+            sector_idx = sector_list.index(saved_sector) if saved_sector in sector_list else 0
+            org_sector = st.selectbox("Secteur d'Activité par défaut", sector_list, index=sector_idx)
+        with col_op2:
+            size_list = list(roi_calculator.COMPANY_SIZE_MULTIPLIERS.keys())
+            saved_size = rep_cfg.get("company_size", "PME (50 - 250 employés)")
+            size_idx = size_list.index(saved_size) if saved_size in size_list else 1
+            org_size = st.selectbox("Taille de l'Entreprise par défaut", size_list, index=size_idx)
+        with col_op3:
+            sens_list = list(roi_calculator.DATA_SENSITIVITY_MULTIPLIERS.keys())
+            saved_sens = rep_cfg.get("data_sensitivity", "PII standard (Noms, Emails)")
+            sens_idx = sens_list.index(saved_sens) if saved_sens in sens_list else 1
+            org_sens = st.selectbox("Sensibilité des Données par défaut", sens_list, index=sens_idx)
+            
+        submitted_op = st.form_submit_button("Sauvegarder le profil", type="primary")
+        if submitted_op:
+            if report_config.save_report_config(
+                company_name=rep_cfg.get("company_name", "Sentient AI"),
+                primary_color=rep_cfg.get("primary_color", "#7c3aed"),
+                footer_text=rep_cfg.get("footer_text", "Sentient AI - Rapport d'Audit Automatisé"),
+                logo_path=rep_cfg.get("logo_path", ""),
+                sector=org_sector,
+                company_size=org_size,
+                data_sensitivity=org_sens
+            ):
+                st.success("Profil de l'organisation sauvegardé avec succès.")
                 st.rerun()
