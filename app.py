@@ -546,22 +546,43 @@ elif menu == "⚡ Lancer un Audit" or st.session_state.get('force_menu') == "⚡
     st.markdown("<h2 style='margin-bottom:0;'>Démarrer un Scan de Sécurité</h2>", unsafe_allow_html=True)
     st.markdown("<p style='color:#a1a1aa;'>Déploiement des sondes Nmap et Nuclei.</p><br>", unsafe_allow_html=True)
     
+    with st.expander("📖 Guide d'utilisation & Formats de cibles supportés", expanded=False):
+        st.markdown("""
+        ### 🎯 Formats de cibles acceptés
+        * **Machine unique (IP)** : Renseignez une adresse IPv4 pour analyser un hôte spécifique.
+          * *Exemple :* `192.168.1.50` ou `8.8.8.8`
+        * **Nom de domaine / URL** : Idéal pour cibler un serveur web, un DNS ou une application web.
+          * *Exemple :* `scanme.nmap.org` ou `http://192.168.1.100:8080`
+        * **Plage réseau (CIDR)** : Renseignez un sous-réseau complet. Les hôtes actifs seront découverts et scannés automatiquement.
+          * *Exemple :* `192.168.1.0/24` (scan de la plage `192.168.1.1` à `192.168.1.254`)
+        
+        ### ⚙️ Profils de découverte (Nmap)
+        * **Top 1000 (Recommandé)** : Analyse les 1000 ports les plus couramment utilisés. Idéal pour un scan standard équilibré.
+        * **Fast (Top 100)** : Cible uniquement les 100 ports les plus critiques pour un résultat ultra-rapide.
+        * **Full (65535)** : Scan minutieux et complet de l'ensemble des ports. *Plus lent mais évite de rater un service caché.*
+        
+        ### 🛡️ Moteurs applicatifs (Nuclei)
+        * **Full (Automatique)** : Analyse globale s'adaptant dynamiquement aux ports et services découverts par Nmap.
+        * **Web CVEs** : Recherche ciblée des vulnérabilités applicatives web connues (CVEs Apache, Tomcat, WordPress, etc.).
+        * **Passif** : Cartographie douce et non intrusive des technologies sans envoi de paquets d'exploitation.
+        """)
+        
     with st.form("scan_form", border=False):
         st.markdown("""
         <div style="background-color: #18181b; padding: 25px; border-radius: 12px; border: 1px solid #27272a;">
         """, unsafe_allow_html=True)
         
-        target_input = st.text_input("🎯 Périmètre d'Audit (IP, URL, CIDR)", placeholder="ex: 192.168.1.0/24 ou scanme.nmap.org")
+        target_input = st.text_input("🎯 Périmètre d'Audit (IP, URL, CIDR)", placeholder="ex: 192.168.1.0/24 ou scanme.nmap.org", help="Adresse IP unique, sous-réseau complet (CIDR) ou hôte DNS.")
         
         col_s1, col_s2, col_s3 = st.columns(3)
         with col_s1:
-            nmap_mode_sel = st.selectbox("Moteur de Découverte", ["Nmap - Top 1000 Ports (Recommandé)", "Nmap - Fast (Top 100)", "Nmap - Full (65535)"], index=0)
+            nmap_mode_sel = st.selectbox("Moteur de Découverte", ["Nmap - Top 1000 Ports (Recommandé)", "Nmap - Fast (Top 100)", "Nmap - Full (65535)"], index=0, help="Choisissez le nombre de ports réseau à analyser avec Nmap.")
             use_demo_mode = st.checkbox("🎭 Mode Démo (Simulation)", value=False, help="Active un scan simulé instantané avec des failles critiques de test pour démonstration.")
         with col_s2:
-            nuclei_mode_sel = st.selectbox("Moteur d'Exploitation", ["Nuclei - Full (Automatique)", "Nuclei - Web CVEs", "Nuclei - Passif"], index=0)
+            nuclei_mode_sel = st.selectbox("Moteur d'Exploitation", ["Nuclei - Full (Automatique)", "Nuclei - Web CVEs", "Nuclei - Passif"], index=0, help="Sélectionnez la profondeur et le ciblage des sondes de vulnérabilité Nuclei.")
         with col_s3:
-            st.selectbox("Modèle d'Orchestration IA", ["Llama 3.1 8B (Actif)", "Qwen 2.5 Coder (Désactivé)"], index=0)
-            report_lang = st.selectbox("Langue du rapport final", ["Français", "Anglais", "Espagnol", "Allemand"], index=0)
+            st.selectbox("Modèle d'Orchestration IA", ["Llama 3.1 8B (Actif)", "Qwen 2.5 Coder (Désactivé)"], index=0, help="Le LLM local chargé de rédiger le rapport final d'audit.")
+            report_lang = st.selectbox("Langue du rapport final", ["Français", "Anglais", "Espagnol", "Allemand"], index=0, help="La langue de rédaction du rapport d'évaluation généré.")
             
         st.markdown("<br><h5>⚙️ Options Avancées</h5>", unsafe_allow_html=True)
         col_adv1, col_adv2 = st.columns(2)
