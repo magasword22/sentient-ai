@@ -138,6 +138,21 @@ Ce profil recherche la facilité de déploiement, l'automatisation et l'intégra
    * Planifier des audits automatiques réguliers (toutes les nuits, toutes les semaines) sur un périmètre donné. Le système envoie une alerte Slack/Discord/E-mail uniquement si de nouvelles failles d'une sévérité critique ou haute sont découvertes.
 5. **Authentification & Contrôle d'Accès (RBAC)** :
    * Protection de l'interface Streamlit par une couche d'authentification (compatible LDAP, OAuth2/OIDC, ou gestion locale SQLite) avec des rôles définis (ex: *Admin* pour lancer les scans, *Client* pour uniquement consulter les rapports dans le coffre-fort).
+6. **Lancement unifié Docker Compose (One-Click)** :
+   * Fournir un fichier `docker-compose.yml` orchestrant l'application Streamlit et une instance Ollama pré-configurée avec prise en charge du GPU pass-through (CUDA/ROCm/Vulkan).
+   * *Bénéfice* : Déploiement instantané sans aucune dépendance Python ou système.
+7. **TUI d'installation interactive (terminal menu)** :
+   * Mettre à niveau `install.sh` avec une interface TUI interactive (ex: via `dialog`) pour choisir les options d'installation, la taille du LLM par défaut et les configurations réseaux (reverse proxy).
+   * *Bénéfice* : Améliore radicalement l'expérience de l'administrateur lors de l'installation.
+8. **Optimisation Matérielle Dynamique (Hardware Tuning)** :
+   * Profilage automatique de la RAM, VRAM et CPU lors du premier démarrage pour configurer de manière optimale le nombre de threads d'Ollama et les limites concurrentes de scan Nuclei.
+   * *Bénéfice* : Vitesse de réponse IA et de scan maximisée sans configuration manuelle.
+9. **Infrastructure-as-Code (Terraform & Ansible)** :
+   * Fournir des templates Terraform et playbooks Ansible pour provisionner et configurer automatiquement des serveurs d'audit cyber dédiés sur AWS, GCP, Azure ou Scaleway en 3 minutes.
+   * *Bénéfice* : Automatisation du cycle de vie des serveurs d'audit (Infrastructure immutable).
+10. **Chart Helm Kubernetes Enterprise** :
+    * Créer un Helm Chart complet pour déployer Sentient AI sur des clusters Kubernetes d'entreprise avec gestion des volumes persistants pour l'historique et intégration des secrets.
+    * *Bénéfice* : Intégration cloud native simplifiée pour les grandes architectures.
 
 ---
 
@@ -147,9 +162,14 @@ Ce profil recherche la facilité de déploiement, l'automatisation et l'intégra
 | :--- | :--- | :--- | :--- | :---: |
 | **Démos / Présentateurs** | Mode Démo (Simulation instantanée) | 🟢 Faible | 🔴 Très Élevé | **Haute** |
 | **Sécurité / Pentest** | Agent de validation d'exploits (PoC) | 🟡 Moyen | 🔴 Très Élevé | **Haute** |
+| **Développeurs / DevOps**| Déploiement Docker Compose unifié | 🟢 Faible | 🔴 Très Élevé | **Haute** |
 | **Marketing / Sales** | Rapports PDF personnalisés (White-Label) | 🟢 Faible | 🟡 Moyen | **Moyenne** |
 | **Développeurs / DevOps**| Planificateur de scans (Cron) | 🟡 Moyen | 🟡 Moyen | **Moyenne** |
 | **Sécurité / Pentest** | Agent de mitigation défensive | 🟡 Moyen | 🟡 Moyen | **Moyenne** |
+| **Développeurs / DevOps**| TUI d'installation pour install.sh | 🟡 Moyen | 🟡 Moyen | **Moyenne** |
+| **Développeurs / DevOps**| Optimisation matérielle dynamique | 🟡 Moyen | 🟡 Moyen | **Moyenne** |
+| **Développeurs / DevOps**| Infrastructure-as-Code (Terraform) | 🟡 Moyen | 🟡 Moyen | **Moyenne** |
+| **Développeurs / DevOps**| Chart Helm Kubernetes | 🟡 Moyen | 🟡 Moyen | **Moyenne** |
 | **Développeurs / DevOps**| Architecture de scan distribuée | 🔴 Élevé | 🟡 Moyen | **Basse** |
 
 ---
@@ -179,3 +199,10 @@ Ce profil recherche la facilité de déploiement, l'automatisation et l'intégra
 - [x] **Rapports White-Label** : Personnalisation de logo, couleurs et nom de marque.
 - [x] **Justifications Réglementaires & ROI** : Mentions DORA/NIS 2/RGPD, calculs financiers ROI et outil de simulation interactif.
 - [ ] **Traduction automatique** : Permettre la génération instantanée de rapports PDF en anglais, espagnol, allemand, etc. à l'aide d'agents de traduction IA.
+
+### 6. 📦 Déploiement, DevOps & Facilité d'Installation
+- [ ] **Déploiement Docker Compose** : Écrire un fichier `docker-compose.yml` multi-conteneurs avec intégration automatique d'Ollama et de l'application avec accélération matérielle.
+- [ ] **TUI (Text User Interface) d'installation** : Moderniser `install.sh` avec un menu terminal interactif pour guider l'utilisateur.
+- [ ] **Optimisation matérielle automatique** : Profiler le système (RAM/VRAM/GPU) pour auto-configurer Ollama et les taux de threads de Nuclei.
+- [ ] **Templates Terraform & Ansible (IaC)** : Développer des scripts pour instancier des instances d'audit dédiées dans le Cloud en quelques clics.
+- [ ] **Chart Helm Kubernetes** : Concevoir les fichiers de configuration Kubernetes Helm pour le déploiement en entreprise.
