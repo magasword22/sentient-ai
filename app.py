@@ -316,10 +316,12 @@ elif menu == "⚡ Lancer un Audit" or st.session_state.get('force_menu') == "⚡
         col_s1, col_s2, col_s3 = st.columns(3)
         with col_s1:
             nmap_mode_sel = st.selectbox("Moteur de Découverte", ["Nmap - Top 1000 Ports (Recommandé)", "Nmap - Fast (Top 100)", "Nmap - Full (65535)"], index=0)
+            use_demo_mode = st.checkbox("🎭 Mode Démo (Simulation)", value=False, help="Active un scan simulé instantané avec des failles critiques de test pour démonstration.")
         with col_s2:
             nuclei_mode_sel = st.selectbox("Moteur d'Exploitation", ["Nuclei - Full (Automatique)", "Nuclei - Web CVEs", "Nuclei - Passif"], index=0)
         with col_s3:
             st.selectbox("Modèle d'Orchestration IA", ["Llama 3.1 8B (Actif)", "Qwen 2.5 Coder (Désactivé)"], index=0)
+            report_lang = st.selectbox("Langue du rapport final", ["Français", "Anglais", "Espagnol", "Allemand"], index=0)
             
         st.markdown("<br><h5>⚙️ Options Avancées</h5>", unsafe_allow_html=True)
         col_adv1, col_adv2 = st.columns(2)
@@ -337,9 +339,12 @@ elif menu == "⚡ Lancer un Audit" or st.session_state.get('force_menu') == "⚡
         submitted = st.form_submit_button("🚀 INITIALISER LA CHAÎNE D'AUDIT", type="primary")
 
     if submitted:
-        if not target_input:
+        if not target_input and not use_demo_mode:
             st.error("Périmètre invalide.")
         else:
+            if use_demo_mode and not target_input:
+                target_input = "demo-target.local"
+                
             progress_bar = st.progress(0)
             status_container = st.container()
             
@@ -351,38 +356,74 @@ elif menu == "⚡ Lancer un Audit" or st.session_state.get('force_menu') == "⚡
                 if "Fast" in nmap_mode_sel: nmap_mode = "Fast"
                 if "Full" in nmap_mode_sel: nmap_mode = "Full"
                 
-                with st.status("Étape 1 : Découverte du périmètre réseau (Nmap)", expanded=True) as status1:
-                    st.write("Exécution des sondes réseau...")
-                    active_hosts = discover_active_hosts(target_input, nmap_mode, use_agressive, use_vuln_script)
-                    if not active_hosts:
-                        status1.update(label="Aucun actif réseau détecté.", state="error", expanded=False)
-                        st.stop()
-                    else:
-                        status1.update(label=f"Périmètre sécurisé : {len(active_hosts)} hôte(s) identifié(s).", state="complete", expanded=False)
-                progress_bar.progress(25)
-                
-                # Mapping Nuclei Tags
-                selected_tags = []
-                if "Web CVEs" in nuclei_mode_sel: selected_tags.append("cve")
-                if "Passif" in nuclei_mode_sel: selected_tags.append("passive")
-                
-                if use_default_logins: selected_tags.append("default-login")
-                if use_exposures: selected_tags.append("exposure")
-                if use_misconfigs: selected_tags.append("misconfig")
-                
-                if not selected_tags and "Full" not in nuclei_mode_sel:
-                    selected_tags = ["cve", "default-login", "exposure", "misconfig"] # Fallback robuste
-                
-                with st.status("Étape 2 : Analyse de vulnérabilités (Nuclei)", expanded=True) as status2:
-                    st.write("Exécution des templates de sécurité (Cette étape est longue)...")
-                    nuclei_results = scan_nuclei(active_hosts, selected_tags if selected_tags else None)
-                    status2.update(label=f"Analyse terminée : {len(nuclei_results)} anomalies relevées.", state="complete", expanded=False)
-                progress_bar.progress(50)
+                if use_demo_mode:
+                    with st.status("Étape 1 : Découverte du périmètre réseau (Simulation)", expanded=True) as status1:
+                        st.write("Exécution simulée des sondes réseau...")
+                        active_hosts = ["demo-target.local"]
+                        status1.update(label="Cible de démonstration détectée (Simulation).", state="complete", expanded=False)
+                    progress_bar.progress(25)
+                    
+                    with st.status("Étape 2 : Analyse de vulnérabilités (Simulation)", expanded=True) as status2:
+                        st.write("Chargement des vulnérabilités simulées de test...")
+                        nuclei_results = [
+                            {
+                                "template-id": "tomcat-default-login",
+                                "info": {
+                                    "name": "Apache Tomcat - Default Administration Credentials",
+                                    "severity": "critical",
+                                    "description": "Le panel d'administration Apache Tomcat utilise les identifiants par défaut admin:admin, ce qui permet l'exécution de code à distance (RCE) via le déploiement d'un fichier WAR malveillant."
+                                },
+                                "type": "http",
+                                "host": "http://demo-target.local:8080",
+                                "matched-at": "http://demo-target.local:8080/manager/html"
+                            },
+                            {
+                                "template-id": "git-config-exposure",
+                                "info": {
+                                    "name": "Git Repository Configuration Exposure",
+                                    "severity": "high",
+                                    "description": "Le répertoire .git/config est exposé publiquement. Des attaquants externes peuvent cloner le code source du projet et y chercher des clés secrètes d'API."
+                                },
+                                "type": "http",
+                                "host": "http://demo-target.local",
+                                "matched-at": "http://demo-target.local/.git/config"
+                            }
+                        ]
+                        status2.update(label="Vulnérabilités de démonstration chargées.", state="complete", expanded=False)
+                    progress_bar.progress(50)
+                else:
+                    with st.status("Étape 1 : Découverte du périmètre réseau (Nmap)", expanded=True) as status1:
+                        st.write("Exécution des sondes réseau...")
+                        active_hosts = discover_active_hosts(target_input, nmap_mode, use_agressive, use_vuln_script)
+                        if not active_hosts:
+                            status1.update(label="Aucun actif réseau détecté.", state="error", expanded=False)
+                            st.stop()
+                        else:
+                            status1.update(label=f"Périmètre sécurisé : {len(active_hosts)} hôte(s) identifié(s).", state="complete", expanded=False)
+                    progress_bar.progress(25)
+                    
+                    # Mapping Nuclei Tags
+                    selected_tags = []
+                    if "Web CVEs" in nuclei_mode_sel: selected_tags.append("cve")
+                    if "Passif" in nuclei_mode_sel: selected_tags.append("passive")
+                    
+                    if use_default_logins: selected_tags.append("default-login")
+                    if use_exposures: selected_tags.append("exposure")
+                    if use_misconfigs: selected_tags.append("misconfig")
+                    
+                    if not selected_tags and "Full" not in nuclei_mode_sel:
+                        selected_tags = ["cve", "default-login", "exposure", "misconfig"] # Fallback robuste
+                    
+                    with st.status("Étape 2 : Analyse de vulnérabilités (Nuclei)", expanded=True) as status2:
+                        st.write("Exécution des templates de sécurité (Cette étape est longue)...")
+                        nuclei_results = scan_nuclei(active_hosts, selected_tags if selected_tags else None)
+                        status2.update(label=f"Analyse terminée : {len(nuclei_results)} anomalies relevées.", state="complete", expanded=False)
+                    progress_bar.progress(50)
                 
                 with st.status("Étape 3 : Traitement par l'IA (Ollama)", expanded=True) as status3:
                     st.write("Synthèse et génération des recommandations...")
                     target_desc = f"{target_input} ({len(active_hosts)} hôte(s))"
-                    markdown_report = analyze_with_ollama(target_desc, nuclei_results)
+                    markdown_report = analyze_with_ollama(target_desc, nuclei_results, language=report_lang)
                     status3.update(label="Raisonnement IA terminé.", state="complete", expanded=False)
                 progress_bar.progress(75)
                 

@@ -138,7 +138,7 @@ def scan_nuclei(targets_list, selected_tags=None):
                     
     return results
 
-def analyze_with_ollama(target_desc, nuclei_results):
+def analyze_with_ollama(target_desc, nuclei_results, language="Français"):
     """Envoie les résultats à la CrewIA (Multi-Agents) pour génération du rapport."""
     import agents
     
@@ -156,7 +156,7 @@ def analyze_with_ollama(target_desc, nuclei_results):
     print(f"[*] Lancement de l'équipe d'Agents (CrewAI) pour analyse. Veuillez patienter...")
     
     try:
-        markdown_report = agents.run_cyber_crew(target_desc, nuclei_results, rag_context)
+        markdown_report = agents.run_cyber_crew(target_desc, nuclei_results, rag_context, language=language)
         return markdown_report
     except Exception as e:
         print(f"[!] Erreur de la CrewAI: {e}")
