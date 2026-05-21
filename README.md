@@ -58,6 +58,33 @@ sentient run      # Lance l'interface en mode debug (premier plan)
 
 ---
 
+## 🐳 Déploiement avec Docker Compose (Recommandé & Multi-plateforme)
+
+Pour un déploiement instantané sans aucune dépendance système locale (pas besoin d'installer Python, Nmap, Nuclei ou Ollama sur votre machine hôte), vous pouvez utiliser **Docker Compose**. 
+
+### 1. Préparation (Pour une nouvelle machine)
+Si vous clonez le dépôt pour la première fois sur un nouveau système, créez les fichiers de base requis pour la persistance :
+```bash
+touch audits.db report_config.json
+```
+
+### 2. Démarrage
+Lancez l'application et son instance d'IA locale en arrière-plan :
+```bash
+docker compose up --build -d
+```
+
+L'application web Streamlit est alors directement accessible à l'adresse :
+👉 `http://localhost:8501`
+Et le moteur Ollama tourne sur `http://localhost:11434`.
+
+### 3. Accélération Matérielle GPU (Optionnel)
+Par défaut, l'instance Ollama s'exécute sur CPU pour garantir une compatibilité universelle sur toutes les distributions et architectures. Pour activer l'accélération graphique :
+- **GPU Nvidia (CUDA)** : Décommentez le bloc `deploy` dans le fichier `docker-compose.yml`.
+- **GPU AMD (ROCm)** : Décommentez l'image `ollama/ollama:rocm`, configurez les variables d'environnement AMD adaptées à votre carte (ex: `HSA_OVERRIDE_GFX_VERSION` pour les architectures comme *Strix Halo*), et passez les périphériques `/dev/kfd` et `/dev/dri`.
+
+---
+
 ## 🔄 Mise à jour et Maintenance
 
 Pour mettre à jour l'application, la base de signatures de vulnérabilités Nuclei et le modèle d'IA local (Ollama) :
