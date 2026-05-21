@@ -93,5 +93,9 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
+## 📋 Feuille de Route & Backlog
+
+Pour suivre l'avancement du projet, les fonctionnalités déjà implémentées (justifications DORA/NIS 2/RGPD, sélections de vulnérabilités multi-catégories) ainsi que les évolutions futures planifiées (hybridation cloud, RAG étendu, scans authentifiés, intégration SAST/DevSecOps), veuillez consulter le fichier [TODO.md](TODO.md).
+
 ## 📜 Licence
 Développé pour l'orchestration avancée de Red Teaming.

@@ -419,7 +419,14 @@ if menu == "📊 Tableau de Bord":
                 })
                 
         if vulns:
-            roi_data = roi_calculator.calculate_financial_risk(vulns, sector, company_size, data_sensitivity)
+            roi_data = roi_calculator.calculate_financial_risk(
+                vulns, 
+                sector, 
+                company_size, 
+                data_sensitivity,
+                custom_breach_costs=rep_cfg.get("custom_breach_costs"),
+                custom_remediation_costs=rep_cfg.get("custom_remediation_costs")
+            )
             latest_exposure = roi_data["total_exposure"]
             latest_savings = roi_data["net_savings"]
             latest_roi_pct = roi_data["roi_pct"]
@@ -584,17 +591,28 @@ elif menu == "⚡ Lancer un Audit" or st.session_state.get('force_menu') == "⚡
             st.selectbox("Modèle d'Orchestration IA", ["Llama 3.1 8B (Actif)", "Qwen 2.5 Coder (Désactivé)"], index=0, help="Le LLM local chargé de rédiger le rapport final d'audit.")
             report_lang = st.selectbox("Langue du rapport final", ["Français", "Anglais", "Espagnol", "Allemand"], index=0, help="La langue de rédaction du rapport d'évaluation généré.")
             
-        st.markdown("<br><h5>⚙️ Options Avancées</h5>", unsafe_allow_html=True)
-        col_adv1, col_adv2 = st.columns(2)
+        st.markdown("<br><h5>⚙️ Options Avancées d'Audit</h5>", unsafe_allow_html=True)
+        col_adv1, col_adv2, col_adv3 = st.columns(3)
         with col_adv1:
-            st.markdown("**Nmap (Réseau)**")
-            use_agressive = st.checkbox("Détection Agressive (OS, Versions, Traceroute)", value=False, help="Active le flag -A de Nmap (plus lent mais plus précis)")
-            use_vuln_script = st.checkbox("Scripts de Vulnérabilités Nmap", value=False, help="Active --script vuln pour trouver des failles réseau pures")
+            st.markdown("**🔍 Découverte Réseau (Nmap)**")
+            use_agressive = st.checkbox("Détection Agressive", value=False, help="Active le flag -A de Nmap (détection d'OS, des versions de service et traceroute). Plus lent.")
+            use_vuln_script = st.checkbox("Scripts de Vulnérabilités Nmap", value=False, help="Active --script vuln pour identifier des vulnérabilités connues au niveau réseau.")
+        
         with col_adv2:
-            st.markdown("**Nuclei (Couche Applicative)**")
-            use_default_logins = st.checkbox("Mots de passe par défaut (Default-Logins)", value=True, help="Recherche les identifiants admin:admin sur les panels")
-            use_exposures = st.checkbox("Fuites de données (Exposures)", value=True, help="Recherche les fichiers .env, clés RSA, etc.")
-            use_misconfigs = st.checkbox("Mauvaises Configurations", value=True, help="Recherche les erreurs de config serveur")
+            st.markdown("**💻 Vulnérabilités Applicatives (Nuclei)**")
+            use_cve = st.checkbox("Failles de sécurité CVE (cve)", value=True, help="Recherche de failles documentées et associées à un numéro CVE dans les applications.")
+            use_default_logins = st.checkbox("Identifiants par défaut (default-login)", value=True, help="Recherche les panels d'administration utilisant des mots de passe triviaux.")
+            use_exposures = st.checkbox("Exposition de Données (exposure)", value=True, help="Détecte les fuites de clés API, fichiers .git, jetons d'accès ou configurations.")
+            use_misconfigs = st.checkbox("Mauvaises Configurations (misconfig)", value=True, help="Identifie les défauts de configuration des serveurs web ou des frameworks.")
+            use_injections = st.checkbox("Injections Web (SQLi, XSS, LFI, SSRF)", value=True, help="Recherche de failles d'injection courantes (SQL, Cross-Site Scripting, inclusions de fichiers).")
+            use_rce = st.checkbox("Exécutions de Code à Distance (rce)", value=True, help="Détecte les vulnérabilités permettant d'exécuter des commandes système arbitraires.")
+            use_redirects = st.checkbox("Redirections & Takeover", value=True, help="Identifie les redirections ouvertes et les risques de détournement de sous-domaine.")
+
+        with col_adv3:
+            st.markdown("**🌐 Réseau, DNS & Protocoles (Nuclei)**")
+            use_ssl = st.checkbox("Sécurité SSL/TLS (ssl)", value=True, help="Vérifie les configurations SSL/TLS, certificats expirés ou algorithmes obsolètes.")
+            use_dns = st.checkbox("Vulnérabilités DNS (dns)", value=True, help="Recherche les failles ou défauts de configuration liés aux enregistrements DNS.")
+            use_network_services = st.checkbox("Services Réseau (TCP/SSH/FTP)", value=True, help="Recherche de vulnérabilités sur les protocoles réseau (FTP, SSH, SMTP, RDP, etc.).")
             
         st.markdown("</div><br>", unsafe_allow_html=True)
         submitted = st.form_submit_button("🚀 INITIALISER LA CHAÎNE D'AUDIT", type="primary")
@@ -668,9 +686,19 @@ elif menu == "⚡ Lancer un Audit" or st.session_state.get('force_menu') == "⚡
                     if "Web CVEs" in nuclei_mode_sel: selected_tags.append("cve")
                     if "Passif" in nuclei_mode_sel: selected_tags.append("passive")
                     
+                    if use_cve: selected_tags.append("cve")
                     if use_default_logins: selected_tags.append("default-login")
                     if use_exposures: selected_tags.append("exposure")
                     if use_misconfigs: selected_tags.append("misconfig")
+                    if use_injections: selected_tags.extend(["sqli", "xss", "lfi", "ssrf"])
+                    if use_rce: selected_tags.append("rce")
+                    if use_redirects: selected_tags.extend(["redirect", "takeover"])
+                    if use_ssl: selected_tags.append("ssl")
+                    if use_dns: selected_tags.append("dns")
+                    if use_network_services: selected_tags.extend(["network", "tcp", "ssh", "ftp", "smtp"])
+                    
+                    # Dédupliquer les tags
+                    selected_tags = list(set(selected_tags))
                     
                     if not selected_tags and "Full" not in nuclei_mode_sel:
                         selected_tags = ["cve", "default-login", "exposure", "misconfig"] # Fallback robuste
@@ -792,42 +820,73 @@ elif menu == "💰 Analyse de Risque ROI":
                     "host": selected_scan["target"]
                 })
                 
+        # Charger les coûts par défaut pour cette simulation
+        saved_breach = rep_cfg.get("custom_breach_costs", roi_calculator.BASE_BREACH_COSTS)
+        saved_remed = rep_cfg.get("custom_remediation_costs", roi_calculator.BASE_REMEDIATION_COSTS)
+
+        with st.expander("🛠️ Ajustement Temporel des Coûts de Base (Pour cette Simulation)"):
+            st.markdown("<p style='font-size:0.9rem; color:#a1a1aa; margin-bottom: 10px;'>Ajustez temporairement les coûts unitaires de base par sévérité pour cette simulation.</p>", unsafe_allow_html=True)
+            col_b1, col_b2 = st.columns(2)
+            sim_breach = {}
+            sim_remed = {}
+            
+            with col_b1:
+                st.markdown("**Exposition de Base (Brèche)**")
+                sim_breach["critical"] = st.number_input("Critique (€) - Exposition", min_value=0.0, value=float(saved_breach.get("critical", 150000.0)), step=5000.0, key="sim_b_crit")
+                sim_breach["high"] = st.number_input("Élevée (€) - Exposition", min_value=0.0, value=float(saved_breach.get("high", 60000.0)), step=2000.0, key="sim_b_high")
+                sim_breach["medium"] = st.number_input("Moyenne (€) - Exposition", min_value=0.0, value=float(saved_breach.get("medium", 15000.0)), step=1000.0, key="sim_b_med")
+                sim_breach["low"] = st.number_input("Faible (€) - Exposition", min_value=0.0, value=float(saved_breach.get("low", 3000.0)), step=500.0, key="sim_b_low")
+                
+            with col_b2:
+                st.markdown("**Remédiation de Base (Ingénierie)**")
+                sim_remed["critical"] = st.number_input("Critique (€) - Remédiation", min_value=0.0, value=float(saved_remed.get("critical", 4000.0)), step=500.0, key="sim_r_crit")
+                sim_remed["high"] = st.number_input("Élevée (€) - Remédiation", min_value=0.0, value=float(saved_remed.get("high", 2000.0)), step=200.0, key="sim_r_high")
+                sim_remed["medium"] = st.number_input("Moyenne (€) - Remédiation", min_value=0.0, value=float(saved_remed.get("medium", 800.0)), step=100.0, key="sim_r_med")
+                sim_remed["low"] = st.number_input("Faible (€) - Remédiation", min_value=0.0, value=float(saved_remed.get("low", 200.0)), step=50.0, key="sim_r_low")
+                
         if not vulns:
             st.success("Aucune vulnérabilité trouvée sur ce scan. L'exposition financière est nulle (0.00 €) !")
         else:
-            # Calculer le risque
-            roi_results = roi_calculator.calculate_financial_risk(vulns, sim_sector, sim_size, sim_sens)
+            # Calculer le risque avec les coûts de simulation
+            roi_results = roi_calculator.calculate_financial_risk(
+                vulns, 
+                sim_sector, 
+                sim_size, 
+                sim_sens,
+                custom_breach_costs=sim_breach,
+                custom_remediation_costs=sim_remed
+            )
             
-            # Afficher les KPIs
+            # Afficher les KPIs avec infobulles explicatives
             c1, c2, c3, c4 = st.columns(4)
             with c1:
                 st.markdown(f"""
-                    <div class="kpi-card">
-                        <div class="kpi-title">Exposition (Risque Brut)</div>
+                    <div class="kpi-card" title="{roi_results['metric_explanations']['total_exposure']}">
+                        <div class="kpi-title">Exposition (Risque Brut) ℹ️</div>
                         <div class="kpi-value" style="color: #ef4444;">{roi_results['total_exposure']:,.2f} €</div>
                         <div style="font-size:0.75rem; color:#a1a1aa;">Coût potentiel d'une brèche</div>
                     </div>
                 """, unsafe_allow_html=True)
             with c2:
                 st.markdown(f"""
-                    <div class="kpi-card">
-                        <div class="kpi-title">Coût de Remédiation</div>
+                    <div class="kpi-card" title="{roi_results['metric_explanations']['total_remediation']}">
+                        <div class="kpi-title">Coût de Remédiation ℹ️</div>
                         <div class="kpi-value" style="color: #2563eb;">{roi_results['total_remediation']:,.2f} €</div>
                         <div style="font-size:0.75rem; color:#a1a1aa;">Ingénierie & Correctifs</div>
                     </div>
                 """, unsafe_allow_html=True)
             with c3:
                 st.markdown(f"""
-                    <div class="kpi-card">
-                        <div class="kpi-title">Économies Nettes</div>
+                    <div class="kpi-card" title="{roi_results['metric_explanations']['net_savings']}">
+                        <div class="kpi-title">Économies Nettes ℹ️</div>
                         <div class="kpi-value" style="color: #16a34a;">{roi_results['net_savings']:,.2f} €</div>
                         <div style="font-size:0.75rem; color:#a1a1aa;">Risque financier évité</div>
                     </div>
                 """, unsafe_allow_html=True)
             with c4:
                 st.markdown(f"""
-                    <div class="kpi-card">
-                        <div class="kpi-title">Taux de ROI</div>
+                    <div class="kpi-card" title="{roi_results['metric_explanations']['roi_pct']}">
+                        <div class="kpi-title">Taux de ROI ℹ️</div>
                         <div class="kpi-value" style="color: #c084fc;">{roi_results['roi_pct']:.1f} %</div>
                         <div style="font-size:0.75rem; color:#a1a1aa;">Rapport bénéfice/coût</div>
                     </div>
@@ -880,6 +939,61 @@ elif menu == "💰 Analyse de Risque ROI":
                 </div>
                 """, unsafe_allow_html=True)
                 
+            st.markdown("<br>", unsafe_allow_html=True)
+            # Section méthodologie détaillée
+            with st.expander("ℹ️ Comment ces coûts sont-ils calculés ? (Méthodologie & Justifications Réglementaires)", expanded=False):
+                st.markdown("### 📊 Détails de la Méthodologie Cyber-ROI")
+                
+                st.markdown("#### 1. Coût d'Exposition Brut (Impact de la Brèche)")
+                st.markdown("L'exposition financière brute représente l'estimation de la perte financière en cas d'exploitation réussie. Les coûts de base par sévérité sont :")
+                
+                # Table breach base costs
+                st.markdown(f"""
+                | Sévérité | Coût de base d'exposition | Justification Métier & Réglementaire (DORA, RGPD, NIS 2) |
+                | :--- | :---: | :--- |
+                | 🔴 **Critique** | {sim_breach['critical']:,.2f} € | {roi_results['exposure_justifications']['critical']} |
+                | 🟠 **Élevée** | {sim_breach['high']:,.2f} € | {roi_results['exposure_justifications']['high']} |
+                | 🟡 **Moyenne** | {sim_breach['medium']:,.2f} € | {roi_results['exposure_justifications']['medium']} |
+                | 🟢 **Faible** | {sim_breach['low']:,.2f} € | {roi_results['exposure_justifications']['low']} |
+                """, unsafe_allow_html=True)
+                
+                st.markdown("<br>#### 2. Coût de Remédiation (Correctifs & Ingénierie)", unsafe_allow_html=True)
+                st.markdown("Le coût de remédiation englobe le temps de développement, les cycles de validation QA, la mise en production et les audits de contrôle. Les coûts de base sont :")
+                
+                # Table remediation base costs
+                st.markdown(f"""
+                | Sévérité | Coût de base de remédiation | Description des Opérations Cyber |
+                | :--- | :---: | :--- |
+                | 🔴 **Critique** | {sim_remed['critical']:,.2f} € | {roi_results['remediation_justifications']['critical']} |
+                | 🟠 **Élevée** | {sim_remed['high']:,.2f} € | {roi_results['remediation_justifications']['high']} |
+                | 🟡 **Moyenne** | {sim_remed['medium']:,.2f} € | {roi_results['remediation_justifications']['medium']} |
+                | 🟢 **Faible** | {sim_remed['low']:,.2f} € | {roi_results['remediation_justifications']['low']} |
+                """, unsafe_allow_html=True)
+                
+                st.markdown("<br>#### 3. Multiplicateurs de Profil appliqués", unsafe_allow_html=True)
+                st.markdown("Le profil de l'organisation ajuste le risque brut d'une brèche. Voici les coefficients appliqués à cette simulation :")
+                
+                # Multiplicateurs
+                st.markdown(f"""
+                - **Secteur d'Activité ({sim_sector})** : `{roi_results['applied_multipliers']['sector']}x`  
+                  *Justification :* {roi_results['multiplier_justifications']['sector'].get(sim_sector, 'Multiplicateur par défaut.')}
+                - **Taille de l'Entreprise ({sim_size})** : `{roi_results['applied_multipliers']['size']}x`  
+                  *Justification :* {roi_results['multiplier_justifications']['company_size'].get(sim_size, 'Multiplicateur par défaut.')}
+                - **Sensibilité des Données ({sim_sens})** : `{roi_results['applied_multipliers']['sensitivity']}x`  
+                  *Justification :* {roi_results['multiplier_justifications']['data_sensitivity'].get(sim_sens, 'Multiplicateur par défaut.')}
+                
+                **Coefficient Multiplicateur Global :** `{roi_results['applied_multipliers']['overall']:.3f}x`
+                """)
+                
+                st.markdown("<br>#### 4. Formules de calcul des Indicateurs", unsafe_allow_html=True)
+                st.markdown(f"""
+                - **Exposition Financière Brute** = `Somme des coûts de base d'exposition × Coefficient Global`
+                - **Coût de Remédiation Total** = `Somme des coûts de base de remédiation` (majoré de +30% pour les ETI et +80% pour les Grandes Entreprises pour refléter la gouvernance cyber).
+                - **Risque Résiduel (5%)** = `Exposition Financière Brute × 0.05` (représente l'impossibilité d'atteindre le risque zéro : failles zero-day, erreurs de manipulation, etc.).
+                - **Économies Nettes** = `Exposition Brute - Coût de Remédiation - Risque Résiduel`
+                - **ROI Cyber (%)** = `(Économies Nettes / Coût de Remédiation) × 100`
+                """)
+                
             st.markdown("<br><br>", unsafe_allow_html=True)
             
             # Liste des vulnérabilités avec Badges de conformité
@@ -917,9 +1031,9 @@ elif menu == "💰 Analyse de Risque ROI":
                 v_host = v.get("host", "N/A")
                 v_temp = v.get("template-id", "")
                 
-                # Coût unitaire pour cette vulnérabilité
-                base_breach = roi_calculator.BASE_BREACH_COSTS.get(v_severity.lower(), 0.0)
-                base_remed = roi_calculator.BASE_REMEDIATION_COSTS.get(v_severity.lower(), 0.0)
+                # Coût unitaire pour cette vulnérabilité basé sur la simulation
+                base_breach = sim_breach.get(v_severity.lower(), 0.0)
+                base_remed = sim_remed.get(v_severity.lower(), 0.0)
                 
                 v_exposure = base_breach * overall_multiplier
                 v_remediation = base_remed
@@ -930,7 +1044,7 @@ elif menu == "💰 Analyse de Risque ROI":
                 
                 m = compliance.map_vulnerability_to_compliance(v_name, v_temp, language="Français")
                 
-                # Box principal
+                # Box principal avec infobulles détaillant le calcul du coût
                 st.markdown(f"""
                 <div style="background-color: #18181b; padding: 20px; border-radius: 8px; border: 1px solid #27272a; margin-bottom: 12px;">
                     <div style="display: flex; justify-content: space-between; align-items: start; flex-wrap: wrap;">
@@ -940,8 +1054,8 @@ elif menu == "💰 Analyse de Risque ROI":
                             <div style="font-size: 0.85rem; color: #a1a1aa; margin-top: 4px;">Hôte cible : <code>{v_host}</code></div>
                         </div>
                         <div style="text-align: right; min-width: 180px;">
-                            <div style="font-size: 0.85rem; color: #ef4444;">Exposition : <strong>{v_exposure:,.2f} €</strong></div>
-                            <div style="font-size: 0.85rem; color: #2563eb;">Remédiation : <strong>{v_remediation:,.2f} €</strong></div>
+                            <div style="font-size: 0.85rem; color: #ef4444;" title="Coût de base ({base_breach:,.0f} €) x Multiplicateur global ({overall_multiplier:.2f}x)">Exposition : <strong>{v_exposure:,.2f} € ℹ️</strong></div>
+                            <div style="font-size: 0.85rem; color: #2563eb;" title="Coût de base de remédiation ({base_remed:,.0f} €) ajusté selon la taille de l'entreprise ({sim_size})">Remédiation : <strong>{v_remediation:,.2f} € ℹ️</strong></div>
                         </div>
                     </div>
                 </div>
@@ -949,6 +1063,10 @@ elif menu == "💰 Analyse de Risque ROI":
                 
                 with st.expander(f"🔍 Détails de Conformité & Remédiation pour {v_name}", expanded=False):
                     st.markdown(f"**Description :** {v.get('info', {}).get('description', 'Aucune description disponible.')}")
+                    st.markdown("---")
+                    st.markdown("##### 💡 Justification des Évaluations Financières")
+                    st.markdown(f"**Exposition aux risques (Brèche) :** {roi_results['exposure_justifications'].get(v_severity.lower(), 'N/A')}")
+                    st.markdown(f"**Action de remédiation (Ingénierie) :** {roi_results['remediation_justifications'].get(v_severity.lower(), 'N/A')}")
                     st.markdown("---")
                     st.markdown("##### 🎯 Exigences de Conformité Mappées")
                     st.markdown(f"- <span class='badge-compliance badge-iso'>ISO 27001</span> {m['iso']}", unsafe_allow_html=True)
@@ -1352,8 +1470,39 @@ elif menu == "⚙️ Configuration":
             sens_idx = sens_list.index(saved_sens) if saved_sens in sens_list else 1
             org_sens = st.selectbox("Sensibilité des Données par défaut", sens_list, index=sens_idx)
             
+        st.markdown("<br><strong>🛡️ Coûts Cyber de Base par Sévérité (Défauts)</strong>", unsafe_allow_html=True)
+        col_c1, col_c2 = st.columns(2)
+        saved_breach = rep_cfg.get("custom_breach_costs", roi_calculator.BASE_BREACH_COSTS)
+        saved_remed = rep_cfg.get("custom_remediation_costs", roi_calculator.BASE_REMEDIATION_COSTS)
+        
+        with col_c1:
+            st.markdown("<p style='font-size:0.85rem; color:#a1a1aa; margin-bottom: 5px;'>Exposition Financière de Base (Impact Brèche)</p>", unsafe_allow_html=True)
+            cfg_b_crit = st.number_input("Critique (€) - Exposition", min_value=0.0, value=float(saved_breach.get("critical", 150000.0)), step=5000.0, key="cfg_b_crit")
+            cfg_b_high = st.number_input("Élevée (€) - Exposition", min_value=0.0, value=float(saved_breach.get("high", 60000.0)), step=2000.0, key="cfg_b_high")
+            cfg_b_med = st.number_input("Moyenne (€) - Exposition", min_value=0.0, value=float(saved_breach.get("medium", 15000.0)), step=1000.0, key="cfg_b_med")
+            cfg_b_low = st.number_input("Faible (€) - Exposition", min_value=0.0, value=float(saved_breach.get("low", 3000.0)), step=500.0, key="cfg_b_low")
+            
+        with col_c2:
+            st.markdown("<p style='font-size:0.85rem; color:#a1a1aa; margin-bottom: 5px;'>Coût de Remédiation de Base (Ingénierie)</p>", unsafe_allow_html=True)
+            cfg_r_crit = st.number_input("Critique (€) - Remédiation", min_value=0.0, value=float(saved_remed.get("critical", 4000.0)), step=500.0, key="cfg_r_crit")
+            cfg_r_high = st.number_input("Élevée (€) - Remédiation", min_value=0.0, value=float(saved_remed.get("high", 2000.0)), step=200.0, key="cfg_r_high")
+            cfg_r_med = st.number_input("Moyenne (€) - Remédiation", min_value=0.0, value=float(saved_remed.get("medium", 800.0)), step=100.0, key="cfg_r_med")
+            cfg_r_low = st.number_input("Faible (€) - Remédiation", min_value=0.0, value=float(saved_remed.get("low", 200.0)), step=50.0, key="cfg_r_low")
+            
         submitted_op = st.form_submit_button("Sauvegarder le profil", type="primary")
         if submitted_op:
+            new_breach = {
+                "critical": cfg_b_crit,
+                "high": cfg_b_high,
+                "medium": cfg_b_med,
+                "low": cfg_b_low
+            }
+            new_remed = {
+                "critical": cfg_r_crit,
+                "high": cfg_r_high,
+                "medium": cfg_r_med,
+                "low": cfg_r_low
+            }
             if report_config.save_report_config(
                 company_name=rep_cfg.get("company_name", "Sentient AI"),
                 primary_color=rep_cfg.get("primary_color", "#7c3aed"),
@@ -1361,7 +1510,9 @@ elif menu == "⚙️ Configuration":
                 logo_path=rep_cfg.get("logo_path", ""),
                 sector=org_sector,
                 company_size=org_size,
-                data_sensitivity=org_sens
+                data_sensitivity=org_sens,
+                custom_breach_costs=new_breach,
+                custom_remediation_costs=new_remed
             ):
-                st.success("Profil de l'organisation sauvegardé avec succès.")
+                st.success("Profil de l'organisation et coûts de base sauvegardés avec succès.")
                 st.rerun()

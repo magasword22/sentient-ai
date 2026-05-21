@@ -72,13 +72,17 @@ def run_cyber_crew(target_desc, nuclei_results, rag_context, language="Français
     sector = rep_cfg.get("sector", "Finance / Assurances")
     company_size = rep_cfg.get("company_size", "PME (50 - 250 employés)")
     data_sensitivity = rep_cfg.get("data_sensitivity", "PII standard (Noms, Emails)")
+    custom_breach = rep_cfg.get("custom_breach_costs")
+    custom_remed = rep_cfg.get("custom_remediation_costs")
     
     # Calculer le ROI et risque financier
     roi_data = roi_calculator.calculate_financial_risk(
         nuclei_results, 
         sector, 
         company_size, 
-        data_sensitivity
+        data_sensitivity,
+        custom_breach_costs=custom_breach,
+        custom_remediation_costs=custom_remed
     )
     
     # Générer le contexte de conformité réglementaire
@@ -432,6 +436,62 @@ def run_cyber_crew(target_desc, nuclei_results, rag_context, language="Français
     rag_safe_context = rag_context if rag_context else rag_default
     t_reco_desc_formatted = t_reco_desc.format(rag_context_val=rag_safe_context)
 
+    # Enlever None ou dictionnaires vides et assurer le fallback pour les tables
+    active_breach = custom_breach if custom_breach else roi_calculator.BASE_BREACH_COSTS
+    active_remed = custom_remed if custom_remed else roi_calculator.BASE_REMEDIATION_COSTS
+
+    # Déterminer la langue pour adapter le texte explicatif de la section financière
+    if "anglais" in lang_lower or "english" in lang_lower:
+        justification_details = f"""
+### Methodology & Financial Cost Justifications (DORA, GDPR, NIS 2)
+
+The financial calculations are tailored based on your organization's specific profile:
+- **Sector ({sector})**: Multiplier `{roi_data['applied_multipliers']['sector']}x` applied. (Reflects regulatory overhead like DORA or HIPAA and direct cyberattack attractiveness).
+- **Company Size ({company_size})**: Multiplier `{roi_data['applied_multipliers']['size']}x` applied. (Reflects scale of operations, number of targets/users, and complexity of security governance).
+- **Data Sensitivity ({data_sensitivity})**: Multiplier `{roi_data['applied_multipliers']['sensitivity']}x` applied. (Reflects the liability, class action risk, and GDPR notification costs associated with data breaches).
+
+#### 🛡️ Base Financial Model & Severity Justification:
+
+| Severity | Base Exposure Cost | Base Remediation Cost | Business & Regulatory Justification |
+| :--- | :--- | :--- | :--- |
+| 🔴 **Critical** | {active_breach.get('critical', 150000.0):,.2f} {t_financial_currency} | {active_remed.get('critical', 4000.0):,.2f} {t_financial_currency} | Ransomware threat, massive GDPR breach, DORA non-compliance. Urgent hot patching & expert mobilization. |
+| 🟠 **High** | {active_breach.get('high', 60000.0):,.2f} {t_financial_currency} | {active_remed.get('high', 2000.0):,.2f} {t_financial_currency} | Production server access. Triggers mandatory regulatory breach notification under GDPR/NIS 2. Prioritized CI/CD deployment. |
+| 🟡 **Medium** | {active_breach.get('medium', 15000.0):,.2f} {t_financial_currency} | {active_remed.get('medium', 800.0):,.2f} {t_financial_currency} | Information disclosure or elevation of privilege. standard patch & configuration management. |
+| 🟢 **Low** | {active_breach.get('low', 3000.0):,.2f} {t_financial_currency} | {active_remed.get('low', 200.0):,.2f} {t_financial_currency} | Informational leakage, minor configuration drift. Simple configuration adjustment. |
+
+#### 📐 Calculation Logic:
+1. **Financial Exposure (Gross Risk)**: Sum of base breach costs × Combined Multiplier (`{roi_data['applied_multipliers']['overall']:.3f}x`).
+2. **Remediation Cost**: Base engineering cost scaled by organization size (+30% for Mid-market, +80% for Enterprise) to account for change management and approval cycles.
+3. **Residual Risk (5%)**: Cybersecurity does not have zero risk; 5% risk is preserved for human errors, future configuration drifts, and zero-day vulnerabilities.
+4. **Net Savings**: `Financial Exposure - Remediation Cost - Residual Risk` (Total financial loss avoided).
+5. **ROI Cyber**: `(Net Savings / Remediation Cost) * 100` (Percentage return on security spend).
+"""
+    else:
+        justification_details = f"""
+### Méthodologie et Justification des Coûts Financiers (RGPD, DORA, NIS 2)
+
+Les calculs financiers sont personnalisés selon le profil spécifique de votre organisation :
+- **Secteur d'Activité ({sector})** : Coefficient `{roi_data['applied_multipliers']['sector']}x` appliqué. ({roi_data['multiplier_justifications']['sector'].get(sector, '')})
+- **Taille de l'Entreprise ({company_size})** : Coefficient `{roi_data['applied_multipliers']['size']}x` appliqué. ({roi_data['multiplier_justifications']['company_size'].get(company_size, '')})
+- **Sensibilité des Données ({data_sensitivity})** : Coefficient `{roi_data['applied_multipliers']['sensitivity']}x` appliqué. ({roi_data['multiplier_justifications']['data_sensitivity'].get(data_sensitivity, '')})
+
+#### 🛡️ Modèle de Coût de Base et Justification par Sévérité :
+
+| Sévérité | Exposition de Base | Remédiation de Base | Justification Métier & Réglementaire |
+| :--- | :--- | :--- | :--- |
+| 🔴 **Critique** | {active_breach.get('critical', 150000.0):,.2f} {t_financial_currency} | {active_remed.get('critical', 4000.0):,.2f} {t_financial_currency} | {roi_data['exposure_justifications']['critical']} |
+| 🟠 **Élevée** | {active_breach.get('high', 60000.0):,.2f} {t_financial_currency} | {active_remed.get('high', 2000.0):,.2f} {t_financial_currency} | {roi_data['exposure_justifications']['high']} |
+| 🟡 **Moyenne** | {active_breach.get('medium', 15000.0):,.2f} {t_financial_currency} | {active_remed.get('medium', 800.0):,.2f} {t_financial_currency} | {roi_data['exposure_justifications']['medium']} |
+| 🟢 **Faible** | {active_breach.get('low', 3000.0):,.2f} {t_financial_currency} | {active_remed.get('low', 200.0):,.2f} {t_financial_currency} | {roi_data['exposure_justifications']['low']} |
+
+#### 📐 Formules Mathématiques du Modèle :
+1. **Exposition Financière (Risque Brut)** : Somme des coûts de base de brèche × Multiplicateur Global (`{roi_data['applied_multipliers']['overall']:.3f}x`).
+2. **Coût de Remédiation** : Somme des coûts d'ingénierie de base, ajustée selon la taille (+30% pour les ETI, +80% pour les Grandes Entreprises) pour intégrer la complexité opérationnelle cyber.
+3. **Risque Résiduel (5%)** : {roi_data['metric_explanations']['residual_risk']}
+4. **Économies Nettes** : `Exposition Financière - Coût de Remédiation - Risque Résiduel` (Bénéfice net direct des corrections).
+5. **ROI Cyber** : `(Économies Nettes / Coût de Remédiation) * 100` (Efficacité financière des dépenses).
+"""
+
     # Construire la section financière pré-calculée en Python pour éviter les erreurs de calcul du modèle
     financial_section_str = (
         f"## {t_financial_title}\n"
@@ -440,7 +500,8 @@ def run_cyber_crew(target_desc, nuclei_results, rag_context, language="Français
         f"- **{t_financial_remediation}** : {roi_data['total_remediation']:,.2f} {t_financial_currency}\n"
         f"- **{t_financial_net_savings}** : {roi_data['net_savings']:,.2f} {t_financial_currency}\n"
         f"- **{t_financial_roi}** : {roi_data['roi_pct']:.2f} %\n\n"
-        f"({t_financial_desc})"
+        f"({t_financial_desc})\n\n"
+        f"{justification_details}"
     )
 
     # ---------------------------------------------------------
