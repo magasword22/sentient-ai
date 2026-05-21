@@ -19,6 +19,7 @@ reports/
 
 # Configuration locale (Ne jamais versionner les clés API !)
 dojo_config.json
+report_config.json
 
 # Fichiers système
 .DS_Store

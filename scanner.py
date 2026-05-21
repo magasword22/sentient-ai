@@ -9,6 +9,8 @@ import re
 from weasyprint import HTML, CSS
 import requests
 import rag
+import base64
+import report_config
 
 def run_command(cmd, timeout=None):
     """Exécute une commande système et retourne sa sortie standard."""
@@ -164,8 +166,69 @@ def export_to_pdf(markdown_text, output_filename):
     """Convertit le Markdown en HTML puis génère un PDF."""
     print(f"[*] Génération du rapport PDF : {output_filename}")
     
+    # Charger la configuration de personnalisation
+    rep_cfg = report_config.load_report_config()
+    company_name = rep_cfg.get("company_name", "Sentient AI")
+    primary_color = rep_cfg.get("primary_color", "#7c3aed")
+    footer_text = rep_cfg.get("footer_text", "Sentient AI - Rapport d'Audit Automatisé")
+    logo_path = rep_cfg.get("logo_path", "")
+    
+    # Encodage du logo en base64 pour injection HTML
+    logo_base64 = ""
+    if logo_path and os.path.exists(logo_path):
+        try:
+            with open(logo_path, "rb") as f:
+                img_data = f.read()
+                mime_type = "image/png"
+                if logo_path.lower().endswith(".jpg") or logo_path.lower().endswith(".jpeg"):
+                    mime_type = "image/jpeg"
+                logo_base64 = f"data:{mime_type};base64," + base64.b64encode(img_data).decode('utf-8')
+        except Exception as e:
+            print(f"[!] Impossible d'encoder le logo : {e}")
+
+    # Nettoyage Markdown
     markdown_text = re.sub(r'```json', '```', markdown_text)
+    
+    # Convertir en HTML
     html_body = markdown.markdown(markdown_text, extensions=['fenced_code', 'tables'])
+    
+    # En-tête de page personnalisé (SaaS White-Label)
+    header_html = f"""
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid {primary_color}; padding-bottom: 15px; margin-bottom: 30px;">
+        <div style="flex: 1;">
+            <h2 style="margin: 0; padding: 0; border: none; color: #2c3e50; font-size: 18pt; font-weight: 800;">{company_name}</h2>
+            <p style="margin: 5px 0 0 0; color: #7f8c8d; font-size: 9pt;">Rapport d'Évaluation de Sécurité</p>
+        </div>
+    """
+    
+    if logo_base64:
+        header_html += f"""
+        <div style="text-align: right;">
+            <img src="{logo_base64}" style="max-height: 45px; max-width: 140px; object-fit: contain;">
+        </div>
+        """
+    header_html += "</div>"
+    
+    # Surcharge CSS à la volée
+    custom_css = f"""
+    <style>
+        h1 {{
+            color: {primary_color} !important;
+            border-bottom: 3px solid {primary_color} !important;
+        }}
+        h3 {{
+            color: {primary_color} !important;
+        }}
+        @page {{
+            @bottom-left {{
+                content: "{footer_text}";
+                font-family: 'Inter', sans-serif;
+                font-size: 8pt;
+                color: #7f8c8d;
+            }}
+        }}
+    </style>
+    """
     
     html_content = f"""
     <!DOCTYPE html>
@@ -173,8 +236,10 @@ def export_to_pdf(markdown_text, output_filename):
     <head>
         <meta charset="UTF-8">
         <title>Rapport de Vulnérabilités</title>
+        {custom_css}
     </head>
     <body>
+        {header_html}
         {html_body}
     </body>
     </html>

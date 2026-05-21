@@ -9,6 +9,7 @@ from scanner import discover_active_hosts, scan_nuclei, analyze_with_ollama, exp
 import rag
 import defectdojo
 import chat
+import report_config
 
 # -----------------------------------------------------------------------------
 # Configuration Globale
@@ -554,3 +555,41 @@ elif menu == "⚙️ Configuration":
         if submitted_dojo:
             if defectdojo.save_config(dojo_url, dojo_token, dojo_eng_id):
                 st.success("Configuration sauvegardée avec succès.")
+                
+    st.markdown("---")
+    st.markdown("### 🎨 Personnalisation des Rapports (White-Label)")
+    st.markdown("Personnalisez l'identité visuelle de vos rapports PDF d'audit générés (Nom d'entreprise, logo, couleur principale et pied de page).")
+    
+    rep_cfg = report_config.load_report_config()
+    
+    with st.form("white_label_form"):
+        col_wl1, col_wl2 = st.columns(2)
+        with col_wl1:
+            comp_name = st.text_input("Nom de l'entreprise", value=rep_cfg.get("company_name", "Sentient AI"))
+            foot_text = st.text_input("Texte de pied de page", value=rep_cfg.get("footer_text", "Sentient AI - Rapport d'Audit Automatisé"))
+        with col_wl2:
+            prim_color = st.color_picker("Couleur principale du rapport", value=rep_cfg.get("primary_color", "#7c3aed"))
+            logo_file = st.file_uploader("Logo de l'entreprise (PNG/JPG)", type=["png", "jpg", "jpeg"])
+            
+            existing_logo = rep_cfg.get("logo_path", "")
+            if existing_logo and os.path.exists(existing_logo):
+                st.image(existing_logo, caption="Logo actuel", width=120)
+                
+        submitted_wl = st.form_submit_button("Sauvegarder le style", type="primary")
+        
+        if submitted_wl:
+            logo_path = rep_cfg.get("logo_path", "")
+            if logo_file is not None:
+                os.makedirs("assets", exist_ok=True)
+                _, ext = os.path.splitext(logo_file.name)
+                logo_path = f"assets/report_logo{ext}"
+                try:
+                    with open(logo_path, "wb") as f:
+                        f.write(logo_file.getbuffer())
+                except Exception as e:
+                    st.error(f"Erreur lors de l'enregistrement du logo: {e}")
+                    logo_path = ""
+            
+            if report_config.save_report_config(comp_name, prim_color, foot_text, logo_path):
+                st.success("Style de rapport sauvegardé avec succès.")
+                st.rerun()
