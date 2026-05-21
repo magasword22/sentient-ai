@@ -1,5 +1,9 @@
 import json
 import ast
+import warnings
+
+# Suppress Pydantic v1/v2 mixing warnings from CrewAI executor
+warnings.filterwarnings("ignore", category=UserWarning, message=".*Mixing V1 models and V2 models.*")
 
 # Polyfill pour Python 3.14 (corrige docstring-parser utilisé par crewai/instructor)
 if not hasattr(ast, 'NameConstant'):
