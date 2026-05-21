@@ -24,6 +24,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libffi-dev \
     rustc \
     cargo \
+    fontconfig \
+    fonts-dejavu-core \
+    shared-mime-info \
     && rm -rf /var/lib/apt/lists/*
 
 # Téléchargement et installation automatique de Nuclei selon l'architecture CPU (amd64 / arm64)

@@ -64,6 +64,9 @@ services:
       - ./reports:/app/reports
       - ./rag_db:/app/rag_db
       - ./assets:/app/assets
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
     depends_on:
       - ollama
     restart: unless-stopped
