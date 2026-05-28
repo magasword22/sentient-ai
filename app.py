@@ -98,6 +98,27 @@ def get_system_telemetry():
     except Exception:
         pass
 
+    # Fallback pour environnement conteneurisé (si /sys est monté et lspci absent)
+    if not has_gpu:
+        for card in ["card1", "card0", "card2"]:
+            sys_path = f"/sys/class/drm/{card}/device"
+            if os.path.exists(sys_path) and os.path.exists(f"{sys_path}/mem_info_vram_total"):
+                has_gpu = True
+                gpu_model = "AMD Radeon GPU"
+                uevent_path = f"{sys_path}/uevent"
+                if os.path.exists(uevent_path):
+                    try:
+                        with open(uevent_path, "r") as f:
+                            uevent_content = f.read()
+                        if "DRIVER=amdgpu" in uevent_content:
+                            if "PCI_ID=1002:1586" in uevent_content:
+                                gpu_model = "AMD Strix Halo"
+                            else:
+                                gpu_model = "AMD Radeon GPU"
+                    except Exception:
+                        pass
+                break
+
     # Récupérer les métriques d'utilisation du GPU
     if has_gpu:
         if "nvidia" in gpu_model.lower():

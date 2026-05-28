@@ -5,41 +5,21 @@ services:
   # Moteur d'IA Locale Ollama
   # ===========================================================================
   ollama:
-    # Image par défaut compatible CPU et GPU Nvidia
-    image: ollama/ollama:latest
+    # Image configurée pour l'accélération GPU AMD (ROCm)
+    image: ollama/ollama:rocm
     container_name: sentient-ollama
     ports:
       - "11434:11434"
+    environment:
+      - HSA_OVERRIDE_GFX_VERSION=11.5.1
+      - HCC_AMDGPU_TARGET=gfx1151
+    devices:
+      - "/dev/kfd:/dev/kfd"
+      - "/dev/dri:/dev/dri"
     volumes:
       # Persistance des modèles LLM téléchargés (ex: llama3.1)
       - ollama_storage:/root/.ollama
     restart: unless-stopped
-
-    # -------------------------------------------------------------------------
-    # OPTION A : POUR L'ACCÉLÉRATION GPU NVIDIA (NVIDIA CUDA)
-    # Décommentez les lignes ci-dessous si vous utilisez un GPU Nvidia
-    # (Nvidia Container Toolkit requis sur l'hôte)
-    # -------------------------------------------------------------------------
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: all
-    #           capabilities: [gpu]
-
-    # -------------------------------------------------------------------------
-    # OPTION B : POUR L'ACCÉLÉRATION GPU AMD (ROCm)
-    # Décommentez les lignes ci-dessous, commentez l'image "ollama:latest" 
-    # et la section d'Option A pour utiliser l'accélération sur carte graphique AMD.
-    # -------------------------------------------------------------------------
-    # image: ollama/ollama:rocm
-    # environment:
-    #   - HSA_OVERRIDE_GFX_VERSION=11.5.1
-    #   - HCC_AMDGPU_TARGET=gfx1151
-    # devices:
-    #   - "/dev/kfd:/dev/kfd"
-    #   - "/dev/dri:/dev/dri"
 
   # ===========================================================================
   # Application Web Streamlit (Sentient AI)
@@ -64,6 +44,8 @@ services:
       - ./reports:/app/reports
       - ./rag_db:/app/rag_db
       - ./assets:/app/assets
+      # Pour la télémétrie GPU de l'hôte dans le conteneur
+      - /sys:/sys:ro
     cap_add:
       - NET_ADMIN
       - NET_RAW
