@@ -1000,6 +1000,8 @@ elif menu == "⚡ Lancer un Audit" or st.session_state.get('force_menu') == "⚡
         * **Passif** : Cartographie douce et non intrusive des technologies sans envoi de paquets d'exploitation.
         """)
         
+    rep_cfg = report_config.load_report_config()
+
     with st.form("scan_form", border=False):
         st.markdown("""
         <div style="background-color: #18181b; padding: 25px; border-radius: 12px; border: 1px solid #27272a;">
