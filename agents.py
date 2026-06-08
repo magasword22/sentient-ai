@@ -739,7 +739,7 @@ Les calculs financiers sont personnalisés selon le profil spécifique de votre 
         return result
     return getattr(result, 'raw', str(result))
 
-def run_host_audit_crew(host, structured_output, language="Français"):
+def run_host_audit_crew(host, structured_output, language="Français", target_os="Linux"):
     """
     Utilise CrewAI pour analyser les résultats de l'audit local (SUID, Sudo, Kernel, etc.)
     et rédiger un rapport d'audit interne avec les risques d'élévation de privilèges.
@@ -751,7 +751,7 @@ def run_host_audit_crew(host, structured_output, language="Français"):
     analyst = Agent(
         role="Spécialiste de l'Élévation de Privilèges",
         goal="Analyser les configurations système locales pour identifier les failles d'élévation de privilèges (LPE).",
-        backstory="Tu es un chercheur en sécurité expert des systèmes d'exploitation. Tu analyses les SUID, règles Sudo, tâches Cron et versions de noyaux pour trouver des vecteurs de compromission locale.",
+        backstory="Tu es un chercheur en sécurité expert des systèmes d'exploitation. Tu analyses les configurations, règles de privilèges, tâches automatiques et versions de noyaux pour trouver des vecteurs de compromission locale.",
         verbose=True,
         allow_delegation=False,
         llm=active_llm
@@ -766,14 +766,56 @@ def run_host_audit_crew(host, structured_output, language="Français"):
         llm=active_llm
     )
     
+    if target_os and target_os.lower() == "windows":
+        analysis_desc = (
+            f"Voici les données d'audit système brutes obtenues sur {host} ({target_os}) :\n\n{structured_output}\n\n"
+            "Examine attentivement les correctifs de sécurité (Hotfixes) manquants, les privilèges de groupes d'utilisateurs, "
+            "les ports locaux en écoute, les clés de registre AlwaysInstallElevated, les chemins de services non encadrés (Unquoted Service Paths), "
+            "les variables d'environnement exposant des secrets, et les fichiers sensibles contenant des clés/tokens. "
+            "Identifie tous les risques et vecteurs réels d'élévation de privilèges (LPE) ou de fuite d'informations spécifiques à Windows. "
+            "Explique précisément chaque vecteur potentiel."
+        )
+        report_desc = (
+            f"Rédige un rapport complet en Markdown rédigé intégralement en {language}. Structure-le avec : "
+            f"# Rapport d'Audit Système local - {host} ({target_os}), ## Résumé Exécutif, ## Vecteurs d'Élévation de Privilèges Identifiés (AlwaysInstallElevated/Unquoted Services/Hotfixes/Groups), "
+            "## Analyse de la Surface d'Exposition (Fichiers, Dossiers, Ports, Secrets), ## Recommandations de Durcissement (CIS/Microsoft/Active Directory/Secrets)."
+        )
+    elif target_os and target_os.lower() == "macos":
+        analysis_desc = (
+            f"Voici les données d'audit système brutes obtenues sur {host} ({target_os}) :\n\n{structured_output}\n\n"
+            "Examine attentivement l'état du SIP (System Integrity Protection), les groupes d'utilisateurs, "
+            "les permissions Sudo, les binaires SUID/SGID, les ports locaux en écoute, les applications Brew installées, "
+            "les variables d'environnement exposant des secrets, l'historique des shells, et les fichiers sensibles (clés SSH, etc.). "
+            "Identifie tous les risques et vecteurs réels d'élévation de privilèges (LPE) ou de fuite d'informations spécifiques à macOS. "
+            "Explique précisément chaque vecteur potentiel."
+        )
+        report_desc = (
+            f"Rédige un rapport complet en Markdown rédigé intégralement en {language}. Structure-le avec : "
+            f"# Rapport d'Audit Système local - {host} ({target_os}), ## Résumé Exécutif, ## Vecteurs d'Élévation de Privilèges Identifiés (SUID/Sudo/SIP/Brew), "
+            "## Analyse de la Surface d'Exposition (Fichiers, Dossiers, Ports, Secrets), ## Recommandations de Durcissement (CIS/Apple/Brew/Secrets)."
+        )
+    else:
+        analysis_desc = (
+            f"Voici les données d'audit système brutes obtenues sur {host} ({target_os}) :\n\n{structured_output}\n\n"
+            "Examine attentivement les SUID/SGID, fichiers sensibles, configurations sudo, noyau, capabilities Linux, "
+            "ports en écoute locale, accès au socket Docker, variables d'environnement exposant des secrets et historique des commandes. "
+            "Identifie tous les risques et vecteurs réels d'élévation de privilèges (LPE) ou de fuite d'informations spécifiques à Linux. "
+            "Explique précisément chaque vecteur potentiel."
+        )
+        report_desc = (
+            f"Rédige un rapport complet en Markdown rédigé intégralement en {language}. Structure-le avec : "
+            f"# Rapport d'Audit Système local - {host} ({target_os}), ## Résumé Exécutif, ## Vecteurs d'Élévation de Privilèges Identifiés (SUID/Sudo/Kernel/Capabilities/Docker), "
+            "## Analyse de la Surface d'Exposition (Fichiers, Dossiers, Ports, Secrets), ## Recommandations de Durcissement (CIS/ANSSI/Docker/Secrets)."
+        )
+        
     task_analysis = Task(
-        description=f"Voici les données d'audit système brutes obtenues sur {host} :\n\n{structured_output}\n\nExamine attentivement les SUID/SGID, fichiers sensibles, configurations sudo, noyau, capabilities Linux, ports en écoute locale, accès au socket Docker, variables d'environnement exposant des secrets et historique des commandes. Identifie tous les risques et vecteurs réels d'élévation de privilèges (LPE) ou de fuite d'informations. Explique précisément chaque vecteur potentiel.",
+        description=analysis_desc,
         expected_output="Une liste structurée des vulnérabilités locales et des vecteurs d'élévation de privilèges identifiés avec le composant vulnérable.",
         agent=analyst
     )
     
     task_report = Task(
-        description=f"Rédige un rapport complet en Markdown rédigé intégralement en {language}. Structure-le avec : # Rapport d'Audit Système local - {host}, ## Résumé Exécutif, ## Vecteurs d'Élévation de Privilèges Identifiés (SUID/Sudo/Kernel/Capabilities/Docker), ## Analyse de la Surface d'Exposition (Fichiers, Dossiers, Ports, Secrets), ## Recommandations de Durcissement (CIS/ANSSI/Docker/Secrets).",
+        description=report_desc,
         expected_output="Le rapport d'audit système complet en Markdown.",
         agent=writer
     )
@@ -782,6 +824,51 @@ def run_host_audit_crew(host, structured_output, language="Français"):
         agents=[analyst, writer],
         tasks=[task_analysis, task_report],
         process=Process.sequential,
+        verbose=True
+    )
+    
+    result = crew.kickoff()
+    if isinstance(result, str):
+        return result
+    return getattr(result, 'raw', str(result))
+
+def run_poc_generation_crew(cve_id, language="Français"):
+    """
+    Génère un guide de vérification et un script de détection inoffensif pour une CVE.
+    """
+    import report_config
+    rep_cfg = report_config.load_report_config()
+    active_llm = get_configured_llm(rep_cfg)
+    
+    analyst = Agent(
+        role="Spécialiste de Détection Cyber",
+        goal=f"Créer une méthode de vérification non destructive et un script de détection inoffensif pour la vulnérabilité {cve_id}.",
+        backstory="Tu es un ingénieur en sécurité expert de la détection de vulnérabilités. Tu écris des scripts d'audit de configuration et des vérificateurs de version inoffensifs pour confirmer la présence de failles sans jamais les exploiter de manière destructive.",
+        verbose=True,
+        allow_delegation=False,
+        llm=active_llm
+    )
+    
+    task_gen = Task(
+        description=(
+            f"Génère un rapport de détection et vérification pour {cve_id} rédigé intégralement en {language}.\n\n"
+            "Ce rapport doit obligatoirement contenir :\n"
+            "1. Description de la vulnérabilité.\n"
+            "2. Méthode manuelle inoffensive de vérification (ex: vérifier la version d'un paquet, examiner une ligne de configuration, inspecter une clé de registre).\n"
+            "3. Un script de vérification automatisé inoffensif (en Python ou Bash). Ce script doit être entièrement passif/non destructif (par exemple, interroger une version, vérifier un port, ou analyser une configuration locale). Il ne doit envoyer aucune charge utile d'exploitation (payload, shellcode, reverse shell).\n\n"
+            "RÈGLES DE SÉCURITÉ ABSOLUES :\n"
+            "- NE génère aucun exploit actif permettant de compromettre une machine.\n"
+            "- NE fournis aucun code d'attaque ou charge utile offensive.\n"
+            "- Limite-toi strictement à la détection passive et à la vérification de conformité.\n\n"
+            "Formatte le script dans un bloc de code standard (fenced code block)."
+        ),
+        expected_output="Un document au format Markdown avec le script de détection inoffensif.",
+        agent=analyst
+    )
+    
+    crew = Crew(
+        agents=[analyst],
+        tasks=[task_gen],
         verbose=True
     )
     

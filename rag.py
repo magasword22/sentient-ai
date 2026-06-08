@@ -115,7 +115,7 @@ def prepopulate_cyber_guidelines(force=False):
         return 0
         
     total_added = 0
-    for filename in ["anssi_guide.md", "cis_benchmarks.md", "owasp_top_10.md"]:
+    for filename in ["anssi_guide.md", "cis_benchmarks.md", "owasp_top_10.md", "kernel_exploits.md"]:
         filepath = os.path.join(standards_dir, filename)
         if os.path.exists(filepath):
             try:

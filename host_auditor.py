@@ -2,12 +2,13 @@ import paramiko
 import os
 import json
 import socket
+import random
 from datetime import datetime
 
 def run_remote_privesc_audit(host, username, password=None, key_path=None, port=22):
     """
-    Se connecte à une machine distante via SSH, exécute un script d'audit de sécurité
-    local (Privilege Escalation & CIS-like) et renvoie les résultats sous forme structurée.
+    Se connecte à une machine distante via SSH, détecte l'OS (Linux, macOS, Windows),
+    exécute un script d'audit local de sécurité (PrivEsc & CIS-like) et renvoie les résultats.
     """
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -21,7 +22,79 @@ def run_remote_privesc_audit(host, username, password=None, key_path=None, port=
     except Exception as e:
         return {"success": False, "error": f"Connexion SSH échouée : {str(e)}"}
 
-    audit_script = """#!/bin/bash
+    # 1. Détection de l'OS cible
+    detected_os = "Linux"
+    try:
+        stdin, stdout, stderr = client.exec_command("uname -s")
+        os_name = stdout.read().decode('utf-8').strip()
+        if "Linux" in os_name:
+            detected_os = "Linux"
+        elif "Darwin" in os_name:
+            detected_os = "macOS"
+        else:
+            # Essayer de détecter Windows
+            stdin, stdout, stderr = client.exec_command("cmd.exe /c ver")
+            win_ver = stdout.read().decode('utf-8').strip()
+            if "Windows" in win_ver or "Microsoft" in win_ver:
+                detected_os = "Windows"
+    except Exception:
+        # Fallback par défaut
+        detected_os = "Linux"
+
+    # 2. Scripts d'audit ciblés par OS
+    if detected_os == "macOS":
+        audit_script = """#!/bin/bash
+echo "=== SYSTEM_INFO ==="
+sw_vers
+uname -a
+echo "=== SIP_STATUS ==="
+csrutil status 2>/dev/null || echo "Impossible de lire le statut SIP"
+echo "=== USER_GROUPS ==="
+id
+dscl . -read /Users/$(whoami) PrimaryGroupID RealName 2>/dev/null
+echo "=== SUDO_PERMS ==="
+sudo -n -l 2>/dev/null || echo "Sudo nécessite mot de passe ou est indisponible"
+echo "=== SUID_SGID ==="
+find /System/Volumes/Data -perm -4000 -type f 2>/dev/null | head -n 30 || find / -perm -4000 -type f 2>/dev/null | head -n 30
+echo "=== LISTEN_PORTS ==="
+lsof -i -P -n | grep LISTEN | head -n 30
+echo "=== INSTALLED_BREW ==="
+brew list --versions 2>/dev/null | head -n 40 || echo "Homebrew non installé ou inaccessible"
+echo "=== ENV_VARIABLES ==="
+env 2>/dev/null | grep -E -i "key|pass|token|secret|admin|auth" | head -n 20
+echo "=== SHELL_HISTORY ==="
+tail -n 50 ~/.bash_history ~/.zsh_history ~/.bash_profile ~/.zshrc 2>/dev/null | grep -E -i "pass|admin|login|ssh|sudo|key" | head -n 20
+echo "=== SENSITIVE_FILES ==="
+find ~ -name "id_rsa" -o -name "*.key" -o -name ".env" -o -name "config.json" 2>/dev/null | head -n 20
+"""
+        shell_cmd = "bash"
+
+    elif detected_os == "Windows":
+        # Script PowerShell exécuté via la ligne de commande Windows
+        audit_script = """powershell -NoProfile -ExecutionPolicy Bypass -Command "
+Write-Host '=== SYSTEM_INFO ==='
+Get-WmiObject Win32_OperatingSystem | Select-Object Caption, Version, OSArchitecture | Format-List
+Write-Host '=== USER_GROUPS ==='
+whoami /groups
+Write-Host '=== HOTFIXES ==='
+Get-HotFix | Select-Object HotFixID, Description, InstalledOn | Select-Object -First 10 | Format-Table
+Write-Host '=== LISTEN_PORTS ==='
+Get-NetTCPConnection -State Listen | Select-Object LocalAddress, LocalPort, OwningProcess | Select-Object -First 20 | Format-Table
+Write-Host '=== ALWAYS_INSTALL_ELEVATED ==='
+Get-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Installer' -Name 'AlwaysInstallElevated' -ErrorAction SilentlyContinue
+Get-ItemProperty -Path 'HKCU:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Installer' -Name 'AlwaysInstallElevated' -ErrorAction SilentlyContinue
+Write-Host '=== UNQUOTED_SERVICE_PATHS ==='
+Get-WmiObject win32_service | Where-Object { $_.PathName -notlike '\"*' -and $_.PathName -like '* *' -and $_.PathName -notlike '*\\system32\\*' } | Select-Object Name, PathName | Format-Table
+Write-Host '=== SENSITIVE_FILES ==='
+Get-ChildItem -Path C:\\Users\\ -Filter '*.git' -Recurse -ErrorAction SilentlyContinue | Select-Object -First 10
+Get-ChildItem -Path C:\\Users\\ -Filter 'id_rsa' -Recurse -ErrorAction SilentlyContinue | Select-Object -First 10
+Write-Host '=== ENV_VARIABLES ==='
+Get-ChildItem Env: | Where-Object { $_.Name -match 'key|pass|token|secret|admin|auth' } | Select-Object Name, Value | Format-Table
+" """
+        shell_cmd = "cmd.exe"
+
+    else: # Linux
+        audit_script = """#!/bin/bash
 echo "=== SYSTEM_INFO ==="
 uname -a
 cat /etc/issue 2>/dev/null || cat /etc/os-release 2>/dev/null
@@ -38,24 +111,29 @@ echo "=== LISTEN_PORTS ==="
 ss -tulpn 2>/dev/null || netstat -tulpn 2>/dev/null || cat /proc/net/tcp 2>/dev/null
 echo "=== DOCKER_SOCKET ==="
 ls -la /var/run/docker.sock 2>/dev/null || echo "Pas de socket Docker accessible"
+echo "=== INSTALLED_PACKAGES ==="
+dpkg-query -W -f='${Package} ${Version}\\n' 2>/dev/null | head -n 40 || rpm -qa --queryformat '%{NAME} %{VERSION}\\n' 2>/dev/null | head -n 40 || apk info -v 2>/dev/null | head -n 40
+echo "=== SSH_CONFIG ==="
+cat /etc/ssh/sshd_config 2>/dev/null | grep -E "PermitRootLogin|PasswordAuthentication|PubkeyAuthentication" | grep -v "#"
 echo "=== ENV_VARIABLES ==="
-env 2>/dev/null | grep -E -i "key|pass|token|secret|admin|auth" | head -n 25
+env 2>/dev/null | grep -E -i "key|pass|token|secret|admin|auth" | head -n 20
 echo "=== SHELL_HISTORY ==="
 tail -n 50 ~/.bash_history ~/.zsh_history 2>/dev/null | grep -E -i "pass|admin|login|ssh|sudo|key" | head -n 20
 echo "=== CRON_JOBS ==="
 ls -la /etc/cron* /etc/crontab 2>/dev/null
 echo "=== WRITABLE_DIRECTORIES ==="
-find / -writable -type d 2>/dev/null | grep -E -v "/proc|/sys|/dev|/run|/var|/tmp" | head -n 30
+find / -writable -type d 2>/dev/null | grep -E -v "/proc|/sys|/dev|/run|/var|/tmp" | head -n 25
 echo "=== SENSITIVE_FILES ==="
 find / -name "id_rsa" -o -name "id_dsa" -o -name "*.key" -o -name "wp-config.php" -o -name "config.json" -o -name ".env" 2>/dev/null | grep -E -v "/usr/share|/usr/lib" | head -n 25
 echo "=== KERNEL_EXPLOITS_CHECK ==="
 kernel_version=$(uname -r)
 echo "Noyau détecté : $kernel_version"
 """
-    
+        shell_cmd = "bash"
+
+    # 3. Exécution du script via SSH
     try:
-        # Exécuter le script
-        stdin, stdout, stderr = client.exec_command("bash")
+        stdin, stdout, stderr = client.exec_command(shell_cmd)
         stdin.write(audit_script)
         stdin.close()
         
@@ -84,6 +162,7 @@ echo "Noyau détecté : $kernel_version"
             
         return {
             "success": True,
+            "detected_os": detected_os,
             "raw_output": output,
             "structured_output": "\n".join(structured_text),
             "sections": sections
@@ -92,4 +171,3 @@ echo "Noyau détecté : $kernel_version"
     except Exception as e:
         client.close()
         return {"success": False, "error": f"Erreur lors de l'exécution de l'audit : {str(e)}"}
-

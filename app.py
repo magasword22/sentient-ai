@@ -686,6 +686,7 @@ with st.sidebar:
             "📊 Tableau de Bord", 
             "⚡ Lancer un Audit", 
             "🖥️ Audit Système PrivEsc",
+            "🧪 Coffre à PoC & Détection",
             "💰 Analyse de Risque ROI",
             "📅 Planification de Scans",
             "📂 Centre de Rapports", 
@@ -1176,27 +1177,71 @@ elif menu == "⚡ Lancer un Audit" or st.session_state.get('force_menu') == "⚡
                                 "Authorization": f"Bearer {selected_probe['token']}",
                                 "Content-Type": "application/json"
                             }
-                            payload_api = {
-                                "target": target_input,
-                                "nmap_mode": nmap_mode_api,
-                                "nuclei_tags": selected_tags
-                            }
                             
-                            try:
-                                response = requests.post(f"{selected_probe['url']}", json=payload_api, headers=headers_api, timeout=1200)
-                                if response.status_code == 200:
-                                    nuclei_results = response.json()
-                                    # Extraire les hôtes
-                                    active_hosts = list(set([r.get("host", target_input) for r in nuclei_results]))
-                                    if not active_hosts:
-                                        active_hosts = [target_input]
-                                    status_remote.update(label=f"Scan distant terminé : {len(nuclei_results)} failles détectées.", state="complete", expanded=False)
-                                else:
-                                    status_remote.update(label=f"Erreur sonde distante (Code {response.status_code}) : {response.text}", state="error", expanded=False)
+                            nuclei_results = []
+                            
+                            # 1. SAST distant
+                            if use_sast:
+                                st.write(f"Lancement du scan SAST distant sur : {sast_path}...")
+                                payload_sast = {
+                                    "target": sast_path,
+                                    "sast": True
+                                }
+                                try:
+                                    response = requests.post(f"{selected_probe['url']}", json=payload_sast, headers=headers_api, timeout=1200)
+                                    if response.status_code == 200:
+                                        sast_res = response.json()
+                                        nuclei_results.extend(sast_res)
+                                        st.write(f"SAST distant terminé : {len(sast_res)} failles détectées.")
+                                    else:
+                                        st.warning(f"Sonde distante (SAST) Code {response.status_code} : {response.text}")
+                                except Exception as ex_api:
+                                    st.warning(f"Échec de connexion à la sonde pour SAST : {ex_api}")
+                                    
+                            # 2. Trivy distant
+                            if use_trivy:
+                                st.write(f"Lancement du scan Trivy distant sur : {trivy_target}...")
+                                payload_trivy = {
+                                    "target": trivy_target,
+                                    "trivy": True
+                                }
+                                try:
+                                    response = requests.post(f"{selected_probe['url']}", json=payload_trivy, headers=headers_api, timeout=1200)
+                                    if response.status_code == 200:
+                                        trivy_res = response.json()
+                                        nuclei_results.extend(trivy_res)
+                                        st.write(f"Trivy distant terminé : {len(trivy_res)} failles détectées.")
+                                    else:
+                                        st.warning(f"Sonde distante (Trivy) Code {response.status_code} : {response.text}")
+                                except Exception as ex_api:
+                                    st.warning(f"Échec de connexion à la sonde pour Trivy : {ex_api}")
+                                    
+                            # 3. Réseau/Nuclei distant
+                            if target_input:
+                                st.write(f"Lancement du scan Réseau/Nuclei distant sur : {target_input}...")
+                                payload_api = {
+                                    "target": target_input,
+                                    "nmap_mode": nmap_mode_api,
+                                    "nuclei_tags": selected_tags
+                                }
+                                try:
+                                    response = requests.post(f"{selected_probe['url']}", json=payload_api, headers=headers_api, timeout=1200)
+                                    if response.status_code == 200:
+                                        net_res = response.json()
+                                        nuclei_results.extend(net_res)
+                                        st.write(f"Scan réseau/Nuclei distant terminé : {len(net_res)} failles détectées.")
+                                    else:
+                                        st.error(f"Sonde distante (Réseau) Code {response.status_code} : {response.text}")
+                                        st.stop()
+                                except Exception as ex_api:
+                                    st.error(f"Échec de connexion à la sonde pour Réseau : {ex_api}")
                                     st.stop()
-                            except Exception as ex_api:
-                                status_remote.update(label=f"Échec de connexion à la sonde : {ex_api}", state="error", expanded=False)
-                                st.stop()
+                                    
+                            # Extraire les hôtes
+                            active_hosts = list(set([r.get("host", target_input) for r in nuclei_results]))
+                            if not active_hosts:
+                                active_hosts = [target_input]
+                            status_remote.update(label=f"Sonde distante terminée : {len(nuclei_results)} failles détectées au total.", state="complete", expanded=False)
                         progress_bar.progress(50)
                     else:
                         with st.status("Étape 1 : Découverte du périmètre réseau (Nmap)", expanded=True) as status1:
@@ -1413,7 +1458,7 @@ elif menu == "🖥️ Audit Système PrivEsc":
                     with st.status("Étape 2 : Analyse agentique de la configuration locale (PrivEsc)", expanded=True) as status_sys2:
                         import agents
                         st.write("Analyse des SUID, Cron, Kernel et Sudo par les agents CrewAI...")
-                        report_md = agents.run_host_audit_crew(target_ip, res_audit["structured_output"], language=lang_sel)
+                        report_md = agents.run_host_audit_crew(target_ip, res_audit["structured_output"], language=lang_sel, target_os=res_audit.get("detected_os", "Linux"))
                         status_sys2.update(label="Rapport d'audit rédigé par l'IA.", state="complete", expanded=False)
                         
                     with st.status("Étape 3 : Génération des livrables (PDF & MD)", expanded=True) as status_sys3:
@@ -1454,6 +1499,69 @@ elif menu == "🖥️ Audit Système PrivEsc":
                     
                     st.markdown("### Aperçu du Rapport d'Audit")
                     st.markdown(report_md)
+
+
+# ==========================================
+# 🧪 COFFRE À POC & DÉTECTION
+# ==========================================
+elif menu == "🧪 Coffre à PoC & Détection":
+    st.markdown("<h2 style='margin-bottom:0;'>🧪 Coffre à PoC & Détection (Vérification)</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='color:#a1a1aa;'>Générez de manière sécurisée des guides et des scripts de détection inoffensifs pour vérifier la présence de vulnérabilités (CVE).</p><br>", unsafe_allow_html=True)
+    
+    if st.session_state.role == "client":
+        st.warning("🔒 Mode lecture seule : Les clients peuvent consulter les guides existants dans l'historique mais ne peuvent pas en générer de nouveaux.")
+    else:
+        with st.form("poc_gen_form"):
+            cve_input = st.text_input("🎯 Identifiant de la Vulnérabilité / CVE", value="CVE-2021-44228", placeholder="ex: CVE-2021-44228, CVE-2021-4034")
+            poc_lang = st.selectbox("Langue de rédaction", ["Français", "Anglais", "Espagnol", "Allemand"])
+            submit_poc = st.form_submit_button("🧪 Générer le Guide de Détection", type="primary", use_container_width=True)
+            
+        if submit_poc:
+            if not cve_input.strip():
+                st.error("Veuillez saisir un identifiant de vulnérabilité valide (ex: CVE-2021-44228).")
+            else:
+                with st.status(f"🧠 Recherche et modélisation de la détection pour {cve_input}...", expanded=True) as status_poc:
+                    import agents
+                    try:
+                        st.write("Analyse de la CVE et conception du script de vérification passif...")
+                        poc_result = agents.run_poc_generation_crew(cve_input, language=poc_lang)
+                        status_poc.update(label="Guide de détection généré avec succès.", state="complete", expanded=False)
+                        
+                        st.success(f"🎉 Guide de détection pour {cve_input} généré !")
+                        
+                        # Interface de rendu
+                        st.markdown("### 📄 Rapport de Détection & Script Inoffensif")
+                        st.markdown(poc_result)
+                        
+                        # Extraire le code pour proposer un téléchargement direct
+                        # On cherche un bloc de code
+                        code_script = ""
+                        lines = poc_result.splitlines()
+                        in_code_block = False
+                        code_lines = []
+                        for line in lines:
+                            if line.strip().startswith("```"):
+                                if in_code_block:
+                                    in_code_block = False
+                                else:
+                                    in_code_block = True
+                            elif in_code_block:
+                                code_lines.append(line)
+                        if code_lines:
+                            code_script = "\n".join(code_lines)
+                            
+                        if code_script:
+                            st.markdown("### 📥 Télécharger le Script de Détection")
+                            st.download_button(
+                                label="💾 Télécharger le Script de Vérification",
+                                data=code_script,
+                                file_name=f"detect_{cve_input.replace('-', '_')}.py" if "import " in code_script or "def " in code_script else f"detect_{cve_input.replace('-', '_')}.sh",
+                                mime="text/plain",
+                                use_container_width=True
+                            )
+                    except Exception as e:
+                        status_poc.update(label=f"Erreur de génération : {str(e)}", state="error", expanded=False)
+                        st.error(f"Une erreur est survenue lors de la génération : {e}")
 
 # ==========================================
 # 💰 ANALYSE DE RISQUE ROI
