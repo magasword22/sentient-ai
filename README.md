@@ -12,10 +12,13 @@ Elle combine la puissance de découverte réseau de **Nmap** et de **Nuclei** av
 ## 🚀 Fonctionnalités Principales
 
 - **Orchestration Agentique (CrewAI)** : Deux agents IA (Analyste SOC & Lead Pentester) discutent et filtrent les résultats bruts des scanners.
+- **Audits LPE Multi-OS (SSH)** : Détection automatique de l'OS (`Linux`, `macOS`, `Windows`) par SSH et exécution d'audits d'élévation de privilèges locaux (PrivEsc) analysés par l'IA.
+- **Coffre à PoC & Détection** : Interface de génération de guides et de scripts de détection/vérification inoffensifs et passifs (Python ou Bash) pour valider des CVEs.
+- **Détections Cyber Extrêmes** : Chasse aux mots de passe en clair (registres Autologon, historiques shells), corrélation automatique des CVE de noyau via RAG, audit de segmentation réseau (ports locaux vs externes) et analyse de patchs obsolètes.
 - **Enrichissement Web Dynamique** : L'IA effectue ses propres recherches Web pour trouver des Preuves de Concept (PoC) publiques ou des exploits GitHub en temps réel.
-- **RAG (Retrieval-Augmented Generation)** : Ingestion de vos propres documents de sécurité (ISO 27001, guides ANSSI) pour dicter à l'IA comment formuler les recommandations.
+- **RAG (Retrieval-Augmented Generation)** : Ingestion de vos propres documents de sécurité (ISO 27001, guides ANSSI, bases d'exploits de noyau) pour dicter à l'IA comment formuler les recommandations.
 - **100% On-Premise / Local** : Vos logs de vulnérabilités ne quittent jamais votre machine.
-- **Export B2B** : Génération de rapports PDF complets et connecteur API natif vers **DefectDojo**.
+- **Export B2B & DevOps** : Génération de rapports PDF White-Label complets, intégration CI/CD (SARIF/JSON) et connecteur API natif vers **DefectDojo**.
 - **Scans Hautement Agressifs** : Support complet des scripts Nmap Vuln (`--script vuln`) et des templates agressifs Nuclei (Default-logins, Exposures, Misconfigs).
 
 ---
