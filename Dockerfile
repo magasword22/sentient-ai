@@ -45,9 +45,8 @@ RUN ARCH=$(uname -m) && \
     unzip -o /tmp/subfinder.zip -d /usr/local/bin subfinder && \
     rm -f /tmp/subfinder.zip && \
     # Trivy
-    wget "https://github.com/aquasecurity/trivy/releases/download/v0.49.1/trivy_0.49.1_Linux-${T_ARCH}.tar.gz" -O /tmp/trivy.tar.gz && \
-    tar -xzf /tmp/trivy.tar.gz -C /usr/local/bin trivy && \
-    rm -f /tmp/trivy.tar.gz
+    curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
 
 # Copie du requirements.txt pour optimiser le cache de build Docker
 COPY requirements.txt .

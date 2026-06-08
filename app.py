@@ -5,7 +5,7 @@ import altair as alt
 import random
 import json
 from datetime import datetime
-from database import init_db, add_scan, get_history, add_schedule, get_schedules, delete_schedule, update_schedule_last_run
+from database import init_db, add_scan, get_history, add_schedule, get_schedules, delete_schedule, update_schedule_last_run, verify_user, add_user, delete_user, get_users
 from scanner import discover_active_hosts, scan_nuclei, analyze_with_ollama, export_to_pdf, run_recon_pipeline, run_sast_scan, run_trivy_scan
 from alerts import send_webhook_notification
 import rag
@@ -171,6 +171,76 @@ if "share" in st.query_params:
     except Exception as e_share:
         st.error(f"Erreur d'accès au partage : {e_share}")
     st.stop()
+
+# -----------------------------------------------------------------------------
+# AUTHENTIFICATION & CONTROLE D'ACCES (RBAC)
+# -----------------------------------------------------------------------------
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
+if 'username' not in st.session_state:
+    st.session_state.username = None
+if 'role' not in st.session_state:
+    st.session_state.role = None
+
+if not st.session_state.logged_in:
+    st.markdown("""
+    <style>
+        .login-container {
+            max-width: 450px;
+            margin: 80px auto;
+            padding: 40px;
+            background: rgba(24, 24, 27, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            text-align: center;
+        }
+        .login-title {
+            color: #7c3aed;
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 5px;
+        }
+        .login-subtitle {
+            color: #a1a1aa;
+            font-size: 0.9rem;
+            margin-bottom: 25px;
+        }
+        .stApp {
+            background-color: #09090b !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown('<div class="login-container">', unsafe_allow_html=True)
+        st.markdown('<div class="login-title">🛡️ Sentient AI</div>', unsafe_allow_html=True)
+        st.markdown('<div class="login-subtitle">Authentification requise | Moteur PTaaS Local</div>', unsafe_allow_html=True)
+        
+        with st.form("login_form", clear_on_submit=False):
+            username_input = st.text_input("Nom d'utilisateur", placeholder="e.g. admin ou client")
+            password_input = st.text_input("Mot de passe", type="password", placeholder="••••••••")
+            login_btn = st.form_submit_button("Se connecter", type="primary", use_container_width=True)
+            
+            if login_btn:
+                if not username_input or not password_input:
+                    st.error("Veuillez remplir tous les champs.")
+                else:
+                    is_valid, role = verify_user(username_input, password_input)
+                    if is_valid:
+                        st.session_state.logged_in = True
+                        st.session_state.username = username_input
+                        st.session_state.role = role
+                        st.success("Connexion réussie !")
+                        st.rerun()
+                    else:
+                        st.error("Identifiants incorrects. Veuillez réessayer.")
+        st.markdown('</div>', unsafe_allow_html=True)
+    st.stop()
+
 
 def get_system_telemetry():
     """Récupère les informations système en temps réel pour le CPU, RAM et GPU."""
@@ -346,55 +416,18 @@ def get_system_telemetry():
     }
 
 # -----------------------------------------------------------------------------
-# Style CSS Premium (Thème Slate/Zinc SaaS)
+# Style CSS Premium & Thèmes Dynamiques
 # -----------------------------------------------------------------------------
-st.markdown("""
-<style>
-    /* Reset et nettoyage de l'UI Streamlit */
+def inject_custom_theme():
+    import report_config
+    cfg = report_config.load_report_config()
+    theme = cfg.get("theme", "Slate/Zinc")
+    
+    common_css = """
     #MainMenu {visibility: hidden;}
     header {visibility: hidden;}
     footer {visibility: hidden;}
     
-    .block-container {
-        padding-top: 2rem !important;
-        max-width: 95% !important;
-        background-color: #09090b; /* Zinc-950 */
-    }
-
-    /* Background principal */
-    .stApp {
-        background-color: #09090b;
-        color: #f4f4f5;
-    }
-
-    /* Style des KPI Cards */
-    .kpi-card {
-        background-color: #18181b; /* Zinc-900 */
-        border: 1px solid #27272a; /* Zinc-800 */
-        border-radius: 12px;
-        padding: 20px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-    }
-    .kpi-title {
-        font-size: 0.875rem;
-        color: #a1a1aa; /* Zinc-400 */
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        margin-bottom: 8px;
-        font-weight: 600;
-    }
-    .kpi-value {
-        font-size: 2.25rem;
-        font-weight: 700;
-        color: #fafafa; /* Zinc-50 */
-        margin-bottom: 8px;
-    }
-    
-    /* Badges de Sévérité */
     .badge {
         display: inline-block;
         padding: 0.25rem 0.5rem;
@@ -408,22 +441,7 @@ st.markdown("""
     .badge-med { background-color: rgba(202, 138, 4, 0.2); color: #eab308; border: 1px solid rgba(202, 138, 4, 0.3); }
     .badge-low { background-color: rgba(37, 99, 235, 0.2); color: #3b82f6; border: 1px solid rgba(37, 99, 235, 0.3); }
     .badge-success { background-color: rgba(22, 163, 74, 0.2); color: #22c55e; border: 1px solid rgba(22, 163, 74, 0.3); }
-
-    /* Telemetry Sidebar */
-    .telemetry-box {
-        background-color: #18181b;
-        border: 1px solid #27272a;
-        border-radius: 8px;
-        padding: 12px;
-        margin-top: auto;
-        font-size: 0.8rem;
-        color: #a1a1aa;
-    }
-    .telemetry-item {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 6px;
-    }
+    
     .dot {
         height: 8px;
         width: 8px;
@@ -433,8 +451,215 @@ st.markdown("""
         margin-right: 6px;
     }
     .dot-warning { background-color: #eab308; }
-</style>
-""", unsafe_allow_html=True)
+    """
+
+    if theme == "Matrix/Hacker":
+        st.markdown(f"""
+        <style>
+            {common_css}
+            
+            .block-container {{
+                padding-top: 2rem !important;
+                max-width: 95% !important;
+                background-color: #000000 !important;
+            }}
+
+            .stApp {{
+                background-color: #000000 !important;
+                color: #00ff00 !important;
+                font-family: 'Courier New', Courier, monospace !important;
+            }}
+
+            h1, h2, h3, h4, h5, h6, p, span, label, div, li, select, option {{
+                color: #00ff00 !important;
+                font-family: 'Courier New', Courier, monospace !important;
+            }}
+
+            .kpi-card {{
+                background-color: #000a00 !important;
+                border: 1px solid #00ff00 !important;
+                border-radius: 4px;
+                padding: 20px;
+                box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+            }}
+            .kpi-title {{
+                font-size: 0.875rem;
+                color: #00cc00 !important;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                margin-bottom: 8px;
+                font-weight: 600;
+            }}
+            .kpi-value {{
+                font-size: 2.25rem;
+                font-weight: 700;
+                color: #00ff00 !important;
+                margin-bottom: 8px;
+            }}
+
+            .telemetry-box {{
+                background-color: #000a00 !important;
+                border: 1px solid #005500 !important;
+                border-radius: 4px;
+                padding: 12px;
+                margin-top: auto;
+                font-size: 0.8rem;
+                color: #00ff00 !important;
+                box-shadow: 0 0 5px rgba(0, 255, 0, 0.3);
+            }}
+            .telemetry-item {{
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 6px;
+                border-bottom: 1px dashed #003300;
+                padding-bottom: 4px;
+            }}
+            
+            button {{
+                background-color: #001100 !important;
+                color: #00ff00 !important;
+                border: 1px solid #00ff00 !important;
+                border-radius: 4px !important;
+            }}
+            button:hover {{
+                background-color: #003300 !important;
+                box-shadow: 0 0 10px rgba(0, 255, 0, 0.8) !important;
+            }}
+        </style>
+        """, unsafe_allow_html=True)
+    elif theme == "Light/Clean":
+        st.markdown(f"""
+        <style>
+            {common_css}
+            
+            .block-container {{
+                padding-top: 2rem !important;
+                max-width: 95% !important;
+                background-color: #f4f4f5 !important;
+            }}
+
+            .stApp {{
+                background-color: #ffffff !important;
+                color: #18181b !important;
+            }}
+
+            h1, h2, h3, h4, h5, h6 {{
+                color: #18181b !important;
+            }}
+            p, span, label, div, li {{
+                color: #27272a !important;
+            }}
+
+            .kpi-card {{
+                background-color: #ffffff !important;
+                border: 1px solid #e4e4e7 !important;
+                border-radius: 12px;
+                padding: 20px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+            }}
+            .kpi-title {{
+                font-size: 0.875rem;
+                color: #71717a !important;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                margin-bottom: 8px;
+                font-weight: 600;
+            }}
+            .kpi-value {{
+                font-size: 2.25rem;
+                font-weight: 700;
+                color: #18181b !important;
+                margin-bottom: 8px;
+            }}
+
+            .telemetry-box {{
+                background-color: #ffffff !important;
+                border: 1px solid #e4e4e7 !important;
+                border-radius: 8px;
+                padding: 12px;
+                margin-top: auto;
+                font-size: 0.8rem;
+                color: #71717a !important;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            }}
+            .telemetry-item {{
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 6px;
+                border-bottom: 1px solid #f4f4f5;
+                padding-bottom: 4px;
+            }}
+        </style>
+        """, unsafe_allow_html=True)
+    else: # Slate/Zinc (Default)
+        st.markdown(f"""
+        <style>
+            {common_css}
+            
+            .block-container {{
+                padding-top: 2rem !important;
+                max-width: 95% !important;
+                background-color: #09090b;
+            }}
+
+            .stApp {{
+                background-color: #09090b;
+                color: #f4f4f5;
+            }}
+
+            .kpi-card {{
+                background-color: #18181b;
+                border: 1px solid #27272a;
+                border-radius: 12px;
+                padding: 20px;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+            }}
+            .kpi-title {{
+                font-size: 0.875rem;
+                color: #a1a1aa;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                margin-bottom: 8px;
+                font-weight: 600;
+            }}
+            .kpi-value {{
+                font-size: 2.25rem;
+                font-weight: 700;
+                color: #fafafa;
+                margin-bottom: 8px;
+            }}
+
+            .telemetry-box {{
+                background-color: #18181b;
+                border: 1px solid #27272a;
+                border-radius: 8px;
+                padding: 12px;
+                margin-top: auto;
+                font-size: 0.8rem;
+                color: #a1a1aa;
+            }}
+            .telemetry-item {{
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 6px;
+            }}
+        </style>
+        """, unsafe_allow_html=True)
+
+# Appliquer le thème
+inject_custom_theme()
 
 # -----------------------------------------------------------------------------
 # Barre Latérale (Sidebar)
@@ -448,9 +673,15 @@ with st.sidebar:
     st.markdown("<p style='color:#a1a1aa; font-size:0.85rem; margin-top:-10px;'>Moteur PTaaS 100% Local</p>", unsafe_allow_html=True)
     st.markdown("---")
     
-    menu = st.radio(
-        "Navigation",
-        options=[
+    if st.session_state.role == "client":
+        options_list = [
+            "📊 Tableau de Bord", 
+            "📂 Centre de Rapports", 
+            "💬 Assistant Virtuel",
+            "🧠 Base de Connaissances (RAG)"
+        ]
+    else:
+        options_list = [
             "📊 Tableau de Bord", 
             "⚡ Lancer un Audit", 
             "💰 Analyse de Risque ROI",
@@ -460,11 +691,29 @@ with st.sidebar:
             "🧠 Base de Connaissances (RAG)", 
             "🖥️ Diagnostic & Performance",
             "⚙️ Configuration"
-        ],
+        ]
+        
+    menu = st.radio(
+        "Navigation",
+        options=options_list,
         label_visibility="collapsed"
     )
     
-    st.markdown("<br><br><br><br>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("---")
+    
+    # Section Utilisateur Connecté
+    st.markdown(f"""
+        <div style="font-size:0.85rem; color:#a1a1aa; margin-bottom:10px;">
+            👤 Utilisateur : <strong>{st.session_state.username}</strong> ({st.session_state.role})
+        </div>
+    """, unsafe_allow_html=True)
+    if st.button("🚪 Se déconnecter", type="secondary", use_container_width=True):
+        st.session_state.logged_in = False
+        st.session_state.username = None
+        st.session_state.role = None
+        st.rerun()
+        
     st.markdown("---")
     
     # Section Télémétrie Système dynamique
@@ -511,8 +760,12 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# Logique de Navigation
+# Logique de Navigation & Sécurité (RBAC)
 # -----------------------------------------------------------------------------
+if st.session_state.role == "client" and menu not in ["📊 Tableau de Bord", "📂 Centre de Rapports", "💬 Assistant Virtuel", "🧠 Base de Connaissances (RAG)"]:
+    st.warning("⛔ Accès refusé : Votre profil (Client) ne vous permet pas d'accéder à cette fonctionnalité.")
+    st.stop()
+
 
 # ==========================================
 # 📊 TABLEAU DE BORD (DASHBOARD)
@@ -966,6 +1219,42 @@ elif menu == "⚡ Lancer un Audit" or st.session_state.get('force_menu') == "⚡
                 
                 with st.status("Étape 3 : Traitement par l'IA (Ollama)", expanded=True) as status3:
                     st.write("Synthèse et génération des recommandations...")
+                    
+                    # --- Live Thought Stream / Visualiseur Graphique des Agents ---
+                    st.markdown("#### 🧠 Thought Stream : Collaboration des Agents IA")
+                    
+                    # Message 1
+                    st.markdown("""
+                    <div style="padding: 10px; background-color: rgba(124, 58, 237, 0.1); border-left: 4px solid #7c3aed; border-radius: 4px; margin-bottom: 10px;">
+                        <strong>🤖 Vulnerability Analyst Senior :</strong> Analyse des vulnérabilités brutes et élimination des faux positifs...
+                    </div>
+                    """, unsafe_allow_html=True)
+                    time.sleep(1.2)
+                    
+                    # Message 2
+                    st.markdown("""
+                    <div style="padding: 10px; background-color: rgba(234, 88, 12, 0.1); border-left: 4px solid #ea580c; border-radius: 4px; margin-bottom: 10px;">
+                        <strong>🔍 Exploit Validation Specialist :</strong> Recherche d'exploits publics et conception de PoC inoffensifs...
+                    </div>
+                    """, unsafe_allow_html=True)
+                    time.sleep(1.2)
+                    
+                    # Message 3
+                    st.markdown("""
+                    <div style="padding: 10px; background-color: rgba(34, 197, 94, 0.1); border-left: 4px solid #22c55e; border-radius: 4px; margin-bottom: 10px;">
+                        <strong>🛡️ Blue Team Active Defender :</strong> Génération de configurations WAF ModSecurity et de règles Yara...
+                    </div>
+                    """, unsafe_allow_html=True)
+                    time.sleep(1.2)
+                    
+                    # Message 4
+                    st.markdown("""
+                    <div style="padding: 10px; background-color: rgba(59, 130, 246, 0.1); border-left: 4px solid #3b82f6; border-radius: 4px; margin-bottom: 10px;">
+                        <strong>✍️ Lead Pentester & Reporter :</strong> Agrégation, calcul du ROI financier et rédaction du rapport final...
+                    </div>
+                    """, unsafe_allow_html=True)
+                    time.sleep(1.2)
+                    
                     target_desc = f"{target_input} ({len(active_hosts)} hôte(s))"
                     markdown_report = analyze_with_ollama(target_desc, nuclei_results, language=report_lang)
                     status3.update(label="Raisonnement IA terminé.", state="complete", expanded=False)
@@ -1935,6 +2224,10 @@ elif menu == "⚙️ Configuration":
         with col_wl1:
             comp_name = st.text_input("Nom de l'entreprise", value=rep_cfg.get("company_name", "Sentient AI"))
             foot_text = st.text_input("Texte de pied de page", value=rep_cfg.get("footer_text", "Sentient AI - Rapport d'Audit Automatisé"))
+            theme_list = ["Slate/Zinc", "Light/Clean", "Matrix/Hacker"]
+            saved_theme = rep_cfg.get("theme", "Slate/Zinc")
+            theme_idx = theme_list.index(saved_theme) if saved_theme in theme_list else 0
+            selected_theme = st.selectbox("Thème de l'interface graphique (UI)", theme_list, index=theme_idx)
         with col_wl2:
             prim_color = st.color_picker("Couleur principale du rapport", value=rep_cfg.get("primary_color", "#7c3aed"))
             logo_file = st.file_uploader("Logo de l'entreprise (PNG/JPG)", type=["png", "jpg", "jpeg"])
@@ -1943,7 +2236,7 @@ elif menu == "⚙️ Configuration":
             if existing_logo and os.path.exists(existing_logo):
                 st.image(existing_logo, caption="Logo actuel", width=120)
                 
-        submitted_wl = st.form_submit_button("Sauvegarder le style", type="primary")
+        submitted_wl = st.form_submit_button("Sauvegarder le style & thème", type="primary")
         
         if submitted_wl:
             logo_path = rep_cfg.get("logo_path", "")
@@ -1965,9 +2258,10 @@ elif menu == "⚙️ Configuration":
                 logo_path,
                 sector=rep_cfg.get("sector"),
                 company_size=rep_cfg.get("company_size"),
-                data_sensitivity=rep_cfg.get("data_sensitivity")
+                data_sensitivity=rep_cfg.get("data_sensitivity"),
+                theme=selected_theme
             ):
-                st.success("Style de rapport sauvegardé avec succès.")
+                st.success("Style de rapport et thème UI sauvegardés avec succès.")
                 st.rerun()
 
     st.markdown("---")
@@ -2144,3 +2438,42 @@ http:
                 f_tpl.write(tpl_code)
             st.success(f"Nouveau template '{tpl_name_new}' créé avec succès.")
             st.rerun()
+
+    st.markdown("---")
+    st.markdown("### 👥 Gestion des Utilisateurs (RBAC)")
+    st.markdown("Gérez les comptes locaux d'accès à la plateforme Sentient AI.")
+    
+    col_u1, col_u2 = st.columns(2)
+    with col_u1:
+        st.markdown("**Créer un nouvel utilisateur**")
+        with st.form("create_user_form"):
+            new_user = st.text_input("Nom d'utilisateur", placeholder="ex: analyst1")
+            new_pass = st.text_input("Mot de passe", type="password", placeholder="••••••••")
+            new_role = st.selectbox("Rôle", ["admin", "client"])
+            submitted_user = st.form_submit_button("Créer l'utilisateur", type="primary")
+            if submitted_user:
+                if not new_user or not new_pass:
+                    st.error("Veuillez remplir tous les champs.")
+                else:
+                    if add_user(new_user, new_pass, new_role):
+                        st.success(f"Utilisateur '{new_user}' créé avec succès.")
+                        st.rerun()
+                    else:
+                        st.error("Cet utilisateur existe déjà ou une erreur est survenue.")
+                        
+    with col_u2:
+        st.markdown("**Utilisateurs existants**")
+        users_list = get_users()
+        for u in users_list:
+            col_usr, col_del = st.columns([3, 1])
+            with col_usr:
+                st.markdown(f"👤 `{u['username']}` — Rôle : **{u['role']}**")
+            with col_del:
+                if u['username'] not in ["admin", "client"]:
+                    if st.button("🗑️", key=f"del_user_{u['id']}", help=f"Supprimer {u['username']}"):
+                        if delete_user(u['username']):
+                            st.success(f"Utilisateur '{u['username']}' supprimé.")
+                            st.rerun()
+                else:
+                    st.markdown("<span style='color:gray;'>Système</span>", unsafe_allow_html=True)
+

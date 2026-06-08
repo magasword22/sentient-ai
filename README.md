@@ -85,6 +85,35 @@ Par défaut, l'instance Ollama s'exécute sur CPU pour garantir une compatibilit
 
 ---
 
+## 🛠️ Lancement en mode CLI (Intégration CI/CD DevSecOps)
+
+Sentient AI fournit un utilitaire en ligne de commande `sentient_cli.py` pour lancer des audits de sécurité automatisés directement depuis vos pipelines de CI/CD (GitHub Actions, GitLab CI, Jenkins) et exporter les vulnérabilités détectées vers vos outils de sécurité au format standardisé **SARIF**, **JSON** ou **Markdown** :
+
+```bash
+# Lancer un audit réseau standard avec rapports Markdown
+python3 sentient_cli.py --target 192.168.1.1 --output rapport.md
+
+# Lancer un scan SAST (Semgrep/Bandit) et exporter au format SARIF pour GitHub Security
+python3 sentient_cli.py --target ./src --sast --format sarif --output results.sarif
+
+# Lancer un scan d'image de conteneur ou de système de fichiers avec Trivy et exporter en JSON
+python3 sentient_cli.py --target debian:latest --trivy --format json --output trivy.json
+```
+
+---
+
+## 🎨 Sécurité RBAC & Thèmes Personnalisés
+
+- **Gestion des Accès & Rôles (RBAC)** : L'accès à l'application Streamlit est sécurisé par un écran de connexion relié à une base locale SQLite. Deux rôles par défaut sont configurés :
+  - `admin` (mot de passe par défaut: `admin0022`) : accès complet (configuration, audits, planificateur, gestion des utilisateurs).
+  - `client` (mot de passe par défaut: `client0022`) : accès restreint en lecture seule aux tableaux de bord, rapports et base de connaissances.
+- **Thèmes de l'Interface Graphique** : Personnalisez l'esthétique de votre tableau de bord en choisissant parmi 3 thèmes dans l'onglet **Configuration** :
+  - **Slate/Zinc** : le thème sombre moderne et élégant par défaut.
+  - **Light/Clean** : un thème clair, épuré et professionnel.
+  - **Matrix/Hacker** : une esthétique rétro-futuriste verte inspirée des consoles de hacking.
+
+---
+
 ## 🔄 Mise à jour et Maintenance
 
 Pour mettre à jour l'application, la base de signatures de vulnérabilités Nuclei et le modèle d'IA local (Ollama) :

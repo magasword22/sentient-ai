@@ -35,6 +35,22 @@ def init_db():
             next_run TEXT NOT NULL
         )
     ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            role TEXT NOT NULL
+        )
+    ''')
+    # Insérer les utilisateurs par défaut s'ils n'existent pas
+    cursor.execute('SELECT COUNT(*) FROM users')
+    if cursor.fetchone()[0] == 0:
+        import hashlib
+        admin_hash = hashlib.sha256("admin0022".encode()).hexdigest()
+        client_hash = hashlib.sha256("client0022".encode()).hexdigest()
+        cursor.execute('INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)', ("admin", admin_hash, "admin"))
+        cursor.execute('INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)', ("client", client_hash, "client"))
     conn.commit()
     conn.close()
 
@@ -127,4 +143,53 @@ def update_schedule_last_run(schedule_id, last_run, next_run):
     cursor.execute('UPDATE schedules SET last_run = ?, next_run = ? WHERE id = ?', (last_run, next_run, schedule_id))
     conn.commit()
     conn.close()
+
+def verify_user(username, password):
+    """Vérifie les informations d'un utilisateur local et retourne (is_valid, role)."""
+    import hashlib
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    pwd_hash = hashlib.sha256(password.encode()).hexdigest()
+    cursor.execute('SELECT role FROM users WHERE username = ? AND password_hash = ?', (username, pwd_hash))
+    row = cursor.fetchone()
+    conn.close()
+    if row:
+        return True, row[0]
+    return False, None
+
+def add_user(username, password, role):
+    """Ajoute un utilisateur dans la base de données."""
+    import hashlib
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    pwd_hash = hashlib.sha256(password.encode()).hexdigest()
+    try:
+        cursor.execute('INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)', (username, pwd_hash, role))
+        conn.commit()
+        success = True
+    except sqlite3.IntegrityError:
+        success = False
+    conn.close()
+    return success
+
+def delete_user(username):
+    """Supprime un utilisateur local (sauf admin et client par défaut)."""
+    if username in ["admin", "client"]:
+        return False
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM users WHERE username = ?', (username,))
+    conn.commit()
+    conn.close()
+    return True
+
+def get_users():
+    """Récupère la liste des utilisateurs."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('SELECT id, username, role FROM users')
+    rows = cursor.fetchall()
+    conn.close()
+    return [{"id": r[0], "username": r[1], "role": r[2]} for r in rows]
+
 

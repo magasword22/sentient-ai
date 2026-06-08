@@ -111,16 +111,16 @@ Ces fonctionnalités visent à maximiser l'effet "Wow" lors de démonstrations e
        📊 Visualiseur de Pensée IA en Live
 ```
 
-* **Mode Démo Instantané (Simulation)** :
+* **Mode Démo Instantané (Simulation)** : [🟢 **Implémenté**]
   * Un bouton permettant de lancer un scan simulé ultrarapide sur une cible fictive (`target.demo`). Le système charge instantanément des résultats prédéfinis de vulnérabilités critiques (ex: Log4j, fuites de clés API) et lance l'IA pour générer le rapport en direct.
   * **Intérêt** : Évite les temps d'attente d'un scan réseau réel (qui peut prendre de 10 à 30 minutes) pendant une présentation de 5 minutes devant un client.
-* **Visualiseur Graphique des Agents (Thought Stream)** :
+* **Visualiseur Graphique des Agents (Thought Stream)** : [🟢 **Implémenté**]
   * Un composant visuel dynamique (graphe ou bulles de discussion animées) montrant les interactions en temps réel entre l'analyste SOC et le Lead Pentester. L'utilisateur voit l'IA "réfléchir", faire des recherches web et débattre de la sévérité d'une faille.
   * **Intérêt** : Rend l'intelligence artificielle agentique tangible et captivante pour l'audience.
 * **Moniteur de Performance Matérielle (GPU Telemetry)** :
   * Affichage en temps réel de la charge CPU/GPU, VRAM et de la vitesse de génération (tokens/seconde). [🟢 **Implémenté**]
 * **Personnalisation des Thèmes d'Interface (UI)** :
-  * Un sélecteur de thèmes dans l'onglet configuration (Slate/Zinc, Light/Clean, Matrix/Hacker). [📅 **Planifié**]
+  * Un sélecteur de thèmes dans l'onglet configuration (Slate/Zinc, Light/Clean, Matrix/Hacker). [🟢 **Implémenté**]
 
 ---
 
@@ -132,11 +132,11 @@ Ce profil recherche la facilité de déploiement, l'automatisation et l'intégra
    * *Bénéfice* : Permet d'auditer des réseaux internes segmentés sans y installer tout le moteur IA.
 2. **Playbooks de Remédiation Automatique** : [🟢 Implémenté]
    * En plus d'expliquer comment corriger une faille, l'assistant virtuel propose des boutons pour télécharger des scripts d'automatisation de correctifs : playbooks **Ansible**, scripts **Bash**, configurations **Terraform**, ou correctifs de fichiers **Dockerfile**.
-3. **Intégration CI/CD Native (DevSecOps)** :
+3. **Intégration CI/CD Native (DevSecOps)** : [🟢 Implémenté]
    * Lancement en mode ligne de commande standardisé (`sentient scan --target target.com --format sarif`) pour intégrer les résultats dans les onglets de sécurité de GitHub, GitLab ou SonarQube.
-4. **Planificateur de Scans Récurrents (Cron)** :
+4. **Planificateur de Scans Récurrents (Cron)** : [🟢 Implémenté]
    * Planifier des audits automatiques réguliers (toutes les nuits, toutes les semaines) sur un périmètre donné. Le système envoie une alerte Slack/Discord/E-mail uniquement si de nouvelles failles d'une sévérité critique ou haute sont découvertes.
-5. **Authentification & Contrôle d'Accès (RBAC)** :
+5. **Authentification & Contrôle d'Accès (RBAC)** : [🟢 Implémenté]
    * Protection de l'interface Streamlit par une couche d'authentification (compatible LDAP, OAuth2/OIDC, ou gestion locale SQLite) avec des rôles définis (ex: *Admin* pour lancer les scans, *Client* pour uniquement consulter les rapports dans le coffre-fort).
 6. **Lancement unifié Docker Compose (One-Click)** : [🟢 Implémenté]
    * Fournir un fichier `docker-compose.yml` orchestrant l'application Streamlit et une instance Ollama pré-configurée avec prise en charge du GPU pass-through (CUDA/ROCm/Vulkan).
