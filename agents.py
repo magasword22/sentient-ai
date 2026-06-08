@@ -145,6 +145,26 @@ def run_cyber_crew(target_desc, nuclei_results, rag_context, language="Français
         )
     compliance_context = "\n".join(compliance_items)
 
+    # Valeurs par défaut pour les nouveaux agents
+    validator_role = 'Exploit Validation Specialist'
+    validator_goal = 'Evaluate threats and design safe, non-destructive validation PoCs to verify vulnerabilities.'
+    validator_backstory = (
+        "You are a skilled exploit analyst. Your job is to read vulnerability logs and design safe, "
+        "non-destructive Proof-of-Concepts (PoCs) to verify if the vulnerability is a true positive. "
+        "You provide specific curl commands, header checks, or safe requests."
+    )
+    
+    defender_role = 'Blue Team Active Defender'
+    defender_goal = 'Create effective defensive configurations, firewall rules, and Yara detection signatures.'
+    defender_backstory = (
+        "You are a SecOps engineer and defensive expert. Your job is to create instant mitigation rules. "
+        "You write custom Nginx/Apache configuration overrides, ModSecurity WAF rules, iptables firewall "
+        "commands, and Yara rules to detect post-exploitation activity."
+    )
+    
+    t_poc_validation = "Validation PoC (Safe & Non-destructive)"
+    t_defense_rules = "Active Defense (WAF, Firewall, Yara)"
+
     # ---------------------------------------------------------
     # TRADUCTIONS ET ADAPTATION DU TEMPLATE
     # ---------------------------------------------------------
@@ -400,6 +420,24 @@ def run_cyber_crew(target_desc, nuclei_results, rag_context, language="Français
         target_lang_name = "French"
         
         # Agent Properties
+        validator_role = 'Spécialiste en Validation d\'Exploits'
+        validator_goal = 'Évaluer les menaces et concevoir des PoC de validation sûrs et non destructifs pour vérifier les failles.'
+        validator_backstory = (
+            "Tu es un analyste expert en exploits. Ton rôle est de lire les alertes de vulnérabilité "
+            "et de concevoir des Preuves de Concept (PoC) de validation sûres et non invasives pour vérifier "
+            "que la faille est réelle. Tu fournis des commandes curl ou des requêtes de test inoffensives."
+        )
+        
+        defender_role = 'Défenseur Actif de la Blue Team'
+        defender_goal = 'Créer des configurations défensives efficaces, des règles de pare-feu et des signatures de détection Yara.'
+        defender_backstory = (
+            "Tu es un ingénieur SecOps et expert défensif. Ton rôle est de concevoir des règles de mitigation instantanées. "
+            "Tu rédiges des règles de WAF ModSecurity, des blocs Nginx, des commandes iptables, et des règles Yara."
+        )
+        
+        t_poc_validation = "PoC de Validation (Sûr & Non destructif)"
+        t_defense_rules = "Défense Active (WAF, Firewall, Yara)"
+
         analyst_role = 'Vulnerability Analyst Senior'
         analyst_goal = 'Analyser les résultats bruts de scan et identifier les véritables menaces en éliminant les faux positifs.'
         analyst_backstory = (
@@ -571,6 +609,24 @@ Les calculs financiers sont personnalisés selon le profil spécifique de votre 
         llm=active_llm
     )
 
+    exploit_validator_agent = Agent(
+        role=validator_role,
+        goal=validator_goal,
+        backstory=validator_backstory,
+        verbose=True,
+        allow_delegation=False,
+        llm=active_llm
+    )
+
+    defender_agent = Agent(
+        role=defender_role,
+        goal=defender_goal,
+        backstory=defender_backstory,
+        verbose=True,
+        allow_delegation=False,
+        llm=active_llm
+    )
+
     # ---------------------------------------------------------
     # DÉFINITION DES TÂCHES (Le Workflow)
     # ---------------------------------------------------------
@@ -580,9 +636,29 @@ Les calculs financiers sont personnalisés selon le profil spécifique de votre 
         agent=analyst_agent
     )
 
+    validation_task = Task(
+        description=(
+            "Analyse les vulnérabilités trouvées par l'analyste. Pour chaque vulnérabilité critique ou haute, "
+            "conçois un protocole de validation (Proof of Concept) sûr et non destructif (ex: requête HTTP spécifique, "
+            "vérification d'en-tête de réponse, commande système de diagnostic). Décris comment reproduire de manière sécurisée."
+        ),
+        expected_output="Guide technique décrivant les étapes et commandes pour valider de manière sûre chaque vulnérabilité.",
+        agent=exploit_validator_agent
+    )
+
+    defender_task = Task(
+        description=(
+            "Sur la base des vulnérabilités identifiées et validées, propose des correctifs et des règles de défense active. "
+            "Génère spécifiquement : 1. Une règle de pare-feu applicatif WAF (ex: ModSecurity), 2. Des règles de pare-feu réseau (iptables/nftables), "
+            "3. Une signature de détection Yara pour identifier les tentatives d'exploitation de ces failles."
+        ),
+        expected_output="Règles de défense active (WAF ModSecurity, Firewall iptables, Signatures Yara) adaptées aux failles.",
+        agent=defender_agent
+    )
+
     report_task = Task(
         description=(
-            f"Prends l'analyse technique de l'analyste et rédige le rapport final de sécurité.\n\n"
+            f"Prends l'analyse technique de l'analyste, les PoCs de validation et les règles de défense active, et rédige le rapport final de sécurité.\n\n"
             f"ATTENTION : Tu dois générer un rapport complet en Markdown basé UNIQUEMENT sur les VRAIES données transmises par l'analyste. "
             f"N'INVENTE AUCUNE VULNÉRABILITÉ. Ne copie pas de texte à trous. Tu dois écrire les vraies valeurs.\n\n"
             f"RÈGLE DE LANGUE IMPORTANTE : Tu DOIS rédiger l'INTEGRALITÉ du rapport (les titres, la description, les recommandations, le résumé exécutif) en {target_lang_name}.\n\n"
@@ -602,6 +678,8 @@ Les calculs financiers sont personnalisés selon le profil spécifique de votre 
             f"- **{t_severity}** : ({t_severity_placeholder})\n"
             f"- **{t_description}** : ({t_description_placeholder})\n"
             f"- **{t_poc}** : ({t_poc_placeholder})\n"
+            f"- **{t_poc_validation}** : (Proposer un PoC de validation sûr et inoffensif sur la base du travail de validation_task)\n"
+            f"- **{t_defense_rules}** : (Proposer des règles WAF ModSecurity, iptables, et signatures Yara sur la base de defender_task)\n"
             f"- **{t_compliance}** : ({t_compliance_placeholder})\n"
             f"- **{t_reco}** : ({t_reco_desc_formatted})\n"
         ),
@@ -612,8 +690,8 @@ Les calculs financiers sont personnalisés selon le profil spécifique de votre 
     # ---------------------------------------------------------
     # TRADUCTION DE FIN PAR AGENT DÉDIÉ (SI NON FRANÇAIS)
     # ---------------------------------------------------------
-    agents_list = [analyst_agent, pentester_agent]
-    tasks_list = [triage_task, report_task]
+    agents_list = [analyst_agent, exploit_validator_agent, defender_agent, pentester_agent]
+    tasks_list = [triage_task, validation_task, defender_task, report_task]
     
     if "français" not in lang_lower and "french" not in lang_lower:
         translator_agent = Agent(

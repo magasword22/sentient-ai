@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     git \
     unzip \
+    gobuster \
     libpango-1.0-0 \
     libpangoft2-1.0-0 \
     libjpeg-dev \
@@ -29,15 +30,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     shared-mime-info \
     && rm -rf /var/lib/apt/lists/*
 
-# Téléchargement et installation automatique de Nuclei selon l'architecture CPU (amd64 / arm64)
+# Téléchargement et installation automatique de Nuclei, Subfinder et Trivy
 RUN ARCH=$(uname -m) && \
-    if [ "$ARCH" = "x86_64" ] || [ "$ARCH" = "amd64" ]; then ARCH_TYPE="amd64"; \
-    elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then ARCH_TYPE="arm64"; \
-    else ARCH_TYPE="amd64"; fi && \
+    if [ "$ARCH" = "x86_64" ] || [ "$ARCH" = "amd64" ]; then ARCH_TYPE="amd64" && T_ARCH="64bit" && S_ARCH="amd64"; \
+    elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then ARCH_TYPE="arm64" && T_ARCH="ARM64" && S_ARCH="arm64"; \
+    else ARCH_TYPE="amd64" && T_ARCH="64bit" && S_ARCH="amd64"; fi && \
+    # Nuclei
     wget "https://github.com/projectdiscovery/nuclei/releases/download/v3.2.0/nuclei_3.2.0_linux_${ARCH_TYPE}.zip" -O /tmp/nuclei.zip && \
     unzip -o /tmp/nuclei.zip -d /usr/local/bin nuclei && \
     rm -f /tmp/nuclei.zip && \
-    nuclei -update-templates
+    nuclei -update-templates && \
+    # Subfinder
+    wget "https://github.com/projectdiscovery/subfinder/releases/download/v2.6.5/subfinder_2.6.5_linux_${S_ARCH}.zip" -O /tmp/subfinder.zip && \
+    unzip -o /tmp/subfinder.zip -d /usr/local/bin subfinder && \
+    rm -f /tmp/subfinder.zip && \
+    # Trivy
+    wget "https://github.com/aquasecurity/trivy/releases/download/v0.49.1/trivy_0.49.1_Linux-${T_ARCH}.tar.gz" -O /tmp/trivy.tar.gz && \
+    tar -xzf /tmp/trivy.tar.gz -C /usr/local/bin trivy && \
+    rm -f /tmp/trivy.tar.gz
 
 # Copie du requirements.txt pour optimiser le cache de build Docker
 COPY requirements.txt .

@@ -100,3 +100,30 @@ def clear_db():
         client.delete_collection("knowledge_base")
     except Exception:
         pass
+
+def prepopulate_cyber_guidelines(force=False):
+    """Pré-charge les référentiels de sécurité standards (ANSSI, CIS, OWASP) dans ChromaDB."""
+    # Si la base de données contient déjà des éléments et que force=False, on ne fait rien
+    if not force and get_doc_count() > 0:
+        return 0
+        
+    standards_dir = "./standards"
+    if not os.path.exists(standards_dir):
+        standards_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "standards")
+        
+    if not os.path.exists(standards_dir):
+        return 0
+        
+    total_added = 0
+    for filename in ["anssi_guide.md", "cis_benchmarks.md", "owasp_top_10.md"]:
+        filepath = os.path.join(standards_dir, filename)
+        if os.path.exists(filepath):
+            try:
+                with open(filepath, "rb") as f:
+                    content_bytes = f.read()
+                chunks = add_document(content_bytes, filename)
+                total_added += chunks
+            except Exception as e:
+                print(f"Erreur d'import du standard {filename} : {e}")
+                
+    return total_added

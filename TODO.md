@@ -74,11 +74,11 @@ Les experts en cybersécurité recherchent la flexibilité technique, la précis
 | Fonctionnalité | Description | Impact Technique | Statut |
 | :--- | :--- | :--- | :---: |
 | **Sélections de Vulnérabilités Avancées** | Configuration dynamique des types de scans depuis le menu Audit (RCE, injections, SSL/TLS, DNS, default-logins, etc.). | Cartographie directe des tags Nuclei en cours d'exécution. | 🟢 **Implémenté** |
-| **Pipeline de Reconnaissance Étendu** | Intégration d'outils DNS et de fuzzing en amont : `Subfinder`, `Amass`, et `Gobuster`/`ffuf`. | Augmente la surface d'attaque identifiée avant l'évaluation. | 📅 **Planifié** |
-| **Éditeur de Templates Nuclei Intégré** | Interface web avec coloration syntaxique permettant d'écrire, modifier et tester des templates YAML. | Permet de cibler des vulnérabilités propriétaires internes. | 📅 **Planifié** |
-| **Agent de Validation d'Exploits** | Agent CrewAI spécialisé ("Exploit Validator") exécutant des PoC non destructives pour valider les failles. | Réduction à 0% du taux de faux positifs. | 📅 **Planifié** |
-| **Agent Défensif (Blue Team Companion)** | Agent générant des correctifs automatisés (ModSecurity WAF, configurations Nginx, règles de pare-feu, Yara). | Génère un guide de remédiation technique immédiat. | 📅 **Planifié** |
-| **Techniques d'Évasion de Pare-feu** | Options Nmap : fragmentation de paquets (`-f`), leurres (`-D`), usurpation MAC. | Permet d'évaluer la résilience des pare-feux et IDS/IPS clients. | 📅 **Planifié** |
+| **Pipeline de Reconnaissance Étendu** | Intégration d'outils DNS et de fuzzing en amont : `Subfinder`, `Amass`, et `Gobuster`/`ffuf`. | Augmente la surface d'attaque identifiée avant l'évaluation. | 🟢 **Implémenté** |
+| **Éditeur de Templates Nuclei Intégré** | Interface web avec coloration syntaxique permettant d'écrire, modifier et tester des templates YAML. | Permet de cibler des vulnérabilités propriétaires internes. | 🟢 **Implémenté** |
+| **Agent de Validation d'Exploits** | Agent CrewAI spécialisé ("Exploit Validator") exécutant des PoC non destructives pour valider les failles. | Réduction à 0% du taux de faux positifs. | 🟢 **Implémenté** |
+| **Agent Défensif (Blue Team Companion)** | Agent générant des correctifs automatisés (ModSecurity WAF, configurations Nginx, règles de pare-feu, Yara). | Génère un guide de remédiation technique immédiat. | 🟢 **Implémenté** |
+| **Techniques d'Évasion de Pare-feu** | Options Nmap : fragmentation de paquets (`-f`), leurres (`-D`), usurpation MAC. | Permet d'évaluer la résilience des pare-feux et IDS/IPS clients. | 🟢 **Implémenté** |
 
 > [!TIP]
 > **Sécurité locale accrue :** Toutes ces opérations de validation d'exploits s'effectuent via l'instance Ollama locale, garantissant qu'aucune donnée de faille zero-day ne fuite vers des API tierces.
@@ -94,7 +94,7 @@ Le marketing et les commerciaux ont besoin de livrables esthétiques, valorisant
 | **Calculateur de Risque Financier (ROI)** | Tableau de bord estimant l'impact financier brut (sectoriel, RGPD, NIS 2) face au coût de remédiation. | Argumentaire financier direct auprès des directions générales (C-Level). | 🟢 **Implémenté** |
 | **Badges de Conformité Réglementaire** | Cartographie automatique aux frameworks : ISO 27001, SOC2, PCI-DSS et ANSSI. | Donne un aperçu instantané de la préparation à une certification. | 🟢 **Implémenté** |
 | **Traduction Automatique des Rapports** | Agent de traduction pour générer les rapports en plusieurs langues (EN, FR, ES, DE). | Facilite le business international et les filiales mondiales. | 🟢 **Implémenté** |
-| **Liens de Partage Sécurisés Temporaires** | URL sécurisée, chiffrée et expirante hébergeant une version interactive en lecture seule du rapport. | Évite le partage de documents sensibles par courriel non sécurisé. | 📅 **Planifié** |
+| **Liens de Partage Sécurisés Temporaires** | URL sécurisée, chiffrée et expirante hébergeant une version interactive en lecture seule du rapport. | Évite le partage de documents sensibles par courriel non sécurisé. | 🟢 **Implémenté** |
 
 ---
 
@@ -178,22 +178,22 @@ Ce profil recherche la facilité de déploiement, l'automatisation et l'intégra
 
 ### 1. 🧠 Modèles & Intelligence IA
 - [x] **Moteur d'IA Hybride (Local + API Cloud)** : Ajouter une option dans la configuration pour basculer vers des API distantes (OpenAI GPT-4o, Anthropic Claude 3.5 Sonnet, Groq) en cas de besoin de performances ou de rapidité.
-- [ ] **RAG Étendu & Référentiels Cyber** : Vectoriser et intégrer les guides de l'ANSSI, les benchmarks CIS et les documentations de remédiation OWASP dans la base vectorielle locale (ChromaDB) pour enrichir le contexte de l'IA.
+- [x] **RAG Étendu & Référentiels Cyber** : Vectoriser et intégrer les guides de l'ANSSI, les benchmarks CIS et les documentations de remédiation OWASP dans la base vectorielle locale (ChromaDB) pour enrichir le contexte de l'IA.
 
 ### 2. ⚡ Capacités de Scan & Sécurité
 - [x] **Sélections avancées de vulnérabilités** : Formulaire à checkboxes 3 colonnes mappé sur les tags Nuclei (`rce`, `sqli`, `xss`, etc.).
-- [ ] **Scans Authentifiés** : Implémenter la prise en charge d'identifiants (clés SSH, tokens d'API, cookies de session web) dans `scanner.py` pour réaliser des scans internes en profondeur.
-- [ ] **Intégration SAST & Conteneurs (DevSecOps)** :
-  - [ ] Intégrer `Trivy` pour l'analyse de vulnérabilités dans les images Docker et conteneurs.
-  - [ ] Intégrer `Semgrep` ou `Bandit` pour le scan de vulnérabilités directement dans le code source de l'organisation.
+- [x] **Scans Authentifiés** : Implémenter la prise en charge d'identifiants (clés SSH, tokens d'API, cookies de session web) dans `scanner.py` pour réaliser des scans internes en profondeur.
+- [x] **Intégration SAST & Conteneurs (DevSecOps)** :
+  - [x] Intégrer `Trivy` pour l'analyse de vulnérabilités dans les images Docker et conteneurs.
+  - [x] Intégrer `Semgrep` ou `Bandit` pour le scan de vulnérabilités directement dans le code source de l'organisation.
 
 ### 3. 📅 Automatisation, Planification & Alertes
-- [ ] **Planificateur d'Audits Récurrents (Cron)** : Ajouter un module de planification dans l'interface Streamlit permettant d'automatiser des scans réguliers (quotidiens, hebdomadaires, mensuels).
+- [x] **Planificateur d'Audits Récurrents (Cron)** : Ajouter un module de planification dans l'interface Streamlit permettant d'automatiser des scans réguliers (quotidiens, hebdomadaires, mensuels).
 - [x] **Notifications & Alertes Temps Réel** : Mettre en œuvre des connecteurs webhook pour envoyer des alertes instantanées sur Slack, Microsoft Teams, Discord ou par e-mail en cas de détection d'une vulnérabilité critique.
 
 ### 4. 🛠️ Correction Assistée & Connexions DevOps
 - [x] **Génération Automatisée de Scripts de Remédiation** : Permettre à l'IA d'éditer ou de proposer au téléchargement des scripts prêts à l'emploi (playbooks Ansible, configurations Terraform, correctifs de fichiers Dockerfile, règles de pare-feu).
-- [ ] **Intégration d'outils de ticketing** : Ajouter des boutons dans le rapport ou l'assistant virtuel pour pousser automatiquement les vulnérabilités détectées sous forme de tickets Jira ou de GitLab/GitHub Issues.
+- [x] **Intégration d'outils de ticketing** : Ajouter des boutons dans le rapport ou l'assistant virtuel pour pousser automatiquement les vulnérabilités détectées sous forme de tickets Jira ou de GitLab/GitHub Issues.
 
 ### 5. 📊 Rapports & Conformité Business
 - [x] **Rapports White-Label** : Personnalisation de logo, couleurs et nom de marque.
@@ -202,7 +202,7 @@ Ce profil recherche la facilité de déploiement, l'automatisation et l'intégra
 
 ### 6. 📦 Déploiement, DevOps & Facilité d'Installation
 - [x] **Déploiement Docker Compose** : Écrire un fichier `docker-compose.yml` multi-conteneurs avec intégration automatique d'Ollama et de l'application avec accélération matérielle.
-- [ ] **TUI (Text User Interface) d'installation** : Moderniser `install.sh` avec un menu terminal interactif pour guider l'utilisateur.
-- [ ] **Optimisation matérielle automatique** : Profiler le système (RAM/VRAM/GPU) pour auto-configurer Ollama et les taux de threads de Nuclei.
-- [ ] **Templates Terraform & Ansible (IaC)** : Développer des scripts pour instancier des instances d'audit dédiées dans le Cloud en quelques clics.
-- [ ] **Chart Helm Kubernetes** : Concevoir les fichiers de configuration Kubernetes Helm pour le déploiement en entreprise.
+- [x] **TUI (Text User Interface) d'installation** : Moderniser `install.sh` avec un menu terminal interactif pour guider l'utilisateur.
+- [x] **Optimisation matérielle automatique** : Profiler le système (RAM/VRAM/GPU) pour auto-configurer Ollama et les taux de threads de Nuclei.
+- [x] **Templates Terraform & Ansible (IaC)** : Développer des scripts pour instancier des instances d'audit dédiées dans le Cloud en quelques clics.
+- [x] **Chart Helm Kubernetes** : Concevoir les fichiers de configuration Kubernetes Helm pour le déploiement en entreprise.

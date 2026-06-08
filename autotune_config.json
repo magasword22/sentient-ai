@@ -1,0 +1,11 @@
+{
+    "cpu_cores": 32,
+    "total_ram_gb": 27.04,
+    "gpu_detected": "None",
+    "vram_gb": 0.0,
+    "ollama_threads": 31,
+    "nuclei_concurrency": 50,
+    "nuclei_rate_limit": 150,
+    "recommended_llm": "llama3.1:8b",
+    "model_size_category": "Medium"
+}

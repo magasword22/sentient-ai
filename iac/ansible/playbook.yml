@@ -1,0 +1,80 @@
+---
+- name: Provision and Deploy Sentient AI
+  hosts: all
+  become: yes
+  vars:
+    git_repo: "https://github.com/magasword22/sentient-ai.git"
+    install_dir: "/opt/sentient"
+    ollama_model: "llama3.1:8b"
+
+  tasks:
+    # 1. Update and install base packages
+    - name: Update apt cache and install basic packages
+      apt:
+        name:
+          - curl
+          - git
+          - apt-transport-https
+          - ca-certificates
+          - gnupg
+          - lsb-release
+        state: present
+        update_cache: yes
+
+    # 2. Install Docker
+    - name: Download Docker official GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker APT repository
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+
+    - name: Install Docker Engine
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+
+    - name: Start and enable Docker service
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    # 3. Clone / Set up project
+    - name: Create installation directory
+      file:
+        path: "{{ install_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Clone Sentient AI repository
+      git:
+        repo: "{{ git_repo }}"
+        dest: "{{ install_dir }}"
+        clone: yes
+        update: yes
+        force: yes
+
+    # 4. Start Docker Compose Stack
+    - name: Run docker compose build and up
+      shell: "docker compose up -d --build"
+      args:
+        chdir: "{{ install_dir }}"
+
+    # 5. Pull Ollama Model inside the container
+    - name: Pull Ollama LLM model
+      shell: "docker compose exec -d sentient-ollama ollama pull {{ ollama_model }}"
+      args:
+        chdir: "{{ install_dir }}"
+
+    - name: Log final completion message
+      debug:
+        msg: "Sentient AI has been successfully provisioned and deployed! Visit http://<your_server_ip>:8501"

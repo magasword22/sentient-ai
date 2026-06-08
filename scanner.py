@@ -29,7 +29,7 @@ def run_command(cmd, timeout=None):
         print(f"[!] Commande non trouvée: {cmd[0]}")
         raise RuntimeError(f"Commande non trouvée: {cmd[0]}")
 
-def discover_active_hosts(target, nmap_mode="T4", use_agressive=False, use_vuln_script=False):
+def discover_active_hosts(target, nmap_mode="T4", use_agressive=False, use_vuln_script=False, evasion_options=None, ssh_credentials=None):
     """Exécute un scan Nmap et retourne une liste des IPs ayant au moins un port ouvert."""
     
     cmd = ["nmap"]
@@ -50,6 +50,30 @@ def discover_active_hosts(target, nmap_mode="T4", use_agressive=False, use_vuln_
         
     if use_vuln_script:
         cmd.extend(["--script", "vuln"])
+
+    # Évasion de pare-feu (Firewall Evasion)
+    if evasion_options:
+        if evasion_options.get("fragment"):
+            cmd.append("-f")
+        if evasion_options.get("decoy"):
+            cmd.extend(["-D", evasion_options.get("decoy")])
+        if evasion_options.get("spoof_mac"):
+            cmd.extend(["--spoof-mac", evasion_options.get("spoof_mac")])
+
+    # Authentification SSH
+    if ssh_credentials:
+        username = ssh_credentials.get("username")
+        password = ssh_credentials.get("password")
+        key_path = ssh_credentials.get("key_path")
+        script_args = []
+        if username:
+            script_args.append(f"ssh.username={username}")
+        if password:
+            script_args.append(f"ssh.password={password}")
+        if key_path:
+            script_args.append(f"ssh.key={key_path}")
+        if script_args:
+            cmd.extend(["--script-args", ",".join(script_args)])
         
     cmd.append(target)
     
@@ -79,7 +103,7 @@ def discover_active_hosts(target, nmap_mode="T4", use_agressive=False, use_vuln_
                     
     return active_hosts
 
-def scan_nuclei(targets_list, selected_tags=None):
+def scan_nuclei(targets_list, selected_tags=None, headers=None):
     """Exécute Nuclei sur une liste de cibles et retourne les résultats en JSON."""
     targets_file = "live_targets.txt"
     with open(targets_file, "w") as f:
@@ -92,9 +116,27 @@ def scan_nuclei(targets_list, selected_tags=None):
         
     cmd = ["nuclei", "-l", targets_file, "-json-export", output_file, "-ni"]
     
+    # Charger la configuration autotune si disponible
+    concurrency = 25
+    rate_limit = 100
+    if os.path.exists("autotune_config.json"):
+        try:
+            with open("autotune_config.json", "r") as f_tune:
+                tune_cfg = json.load(f_tune)
+                concurrency = tune_cfg.get("nuclei_concurrency", concurrency)
+                rate_limit = tune_cfg.get("nuclei_rate_limit", rate_limit)
+        except Exception:
+            pass
+    cmd.extend(["-c", str(concurrency), "-rl", str(rate_limit)])
+    
     if selected_tags:
         tags_str = ",".join(selected_tags)
         cmd.extend(["-tags", tags_str])
+
+    # Ajouter les en-têtes d'authentification personnalisés (HTTP Headers / Cookies)
+    if headers:
+        for k, v in headers.items():
+            cmd.extend(["-H", f"{k}: {v}"])
         
     run_command(cmd)
     
@@ -250,6 +292,169 @@ def export_to_pdf(markdown_text, output_filename):
         print(f"[+] Rapport généré avec succès : {output_filename}")
     except Exception as e:
         print(f"[!] Erreur lors de la génération PDF : {e}")
+
+def run_recon_pipeline(target, run_subfinder=False, run_gobuster=False):
+    """Exécute des outils de reconnaissance supplémentaires (subfinder, gobuster)."""
+    recon_results = []
+    
+    if run_subfinder:
+        print(f"[*] Lancement de subfinder sur la cible : {target}")
+        cmd = ["subfinder", "-d", target, "-silent"]
+        try:
+            output = run_command(cmd)
+            subdomains = [line.strip() for line in output.split("\n") if line.strip()]
+            print(f"[+] Sous-domaines découverts par subfinder : {subdomains}")
+            recon_results.extend(subdomains)
+        except Exception as e:
+            print(f"[!] Erreur subfinder : {e}")
+            
+    if run_gobuster:
+        # Assurer que la cible commence par http
+        url = target
+        if not url.startswith(("http://", "https://")):
+            url = f"http://{target}"
+        print(f"[*] Lancement de gobuster sur la cible : {url}")
+        wordlist = "/usr/share/wordlists/dirb/common.txt"
+        if not os.path.exists(wordlist):
+            wordlist = "./assets/common_wordlist.txt"
+            os.makedirs("./assets", exist_ok=True)
+            with open(wordlist, "w") as wf:
+                wf.write("admin\n.git\nconfig\nbackup\nwp-admin\nlogin\napi\n")
+                
+        cmd = ["gobuster", "dir", "-u", url, "-w", wordlist, "-q", "-z"]
+        try:
+            output = run_command(cmd)
+            paths = []
+            for line in output.split("\n"):
+                if line.strip():
+                    paths.append(line.strip())
+            print(f"[+] Chemins découverts par gobuster : {paths}")
+        except Exception as e:
+            print(f"[!] Erreur gobuster : {e}")
+            
+    return recon_results
+
+def run_sast_scan(target_path):
+    """Exécute un scan SAST avec Bandit (Python) et Semgrep (Général) sur le code source."""
+    sast_results = []
+    
+    # 1. Bandit
+    if os.path.exists(target_path):
+        print(f"[*] Lancement de Bandit sur le chemin : {target_path}")
+        output_file = "bandit_results.json"
+        if os.path.exists(output_file):
+            os.remove(output_file)
+        cmd = ["bandit", "-r", target_path, "-f", "json", "-o", output_file]
+        try:
+            subprocess.run(cmd, capture_output=True)
+        except Exception as e:
+            print(f"[!] Erreur d'exécution de Bandit : {e}")
+            
+        if os.path.exists(output_file):
+            try:
+                with open(output_file, "r") as f:
+                    data = json.load(f)
+                    for issue in data.get("results", []):
+                        sast_results.append({
+                            "template-id": f"bandit-{issue.get('test_id')}",
+                            "info": {
+                                "name": f"Bandit SAST: {issue.get('issue_text')}",
+                                "severity": issue.get("issue_severity").lower(),
+                                "description": f"Fichier: {issue.get('filename')}:{issue.get('line_number')}\nCode: {issue.get('code')}"
+                            },
+                            "type": "sast",
+                            "host": target_path,
+                            "matched-at": f"{issue.get('filename')}#L{issue.get('line_number')}"
+                        })
+            except Exception as e:
+                print(f"[!] Erreur lecture rapports Bandit : {e}")
+            finally:
+                if os.path.exists(output_file):
+                    os.remove(output_file)
+                
+    # 2. Semgrep
+    if os.path.exists(target_path):
+        print(f"[*] Lancement de Semgrep sur le chemin : {target_path}")
+        output_file = "semgrep_results.json"
+        if os.path.exists(output_file):
+            os.remove(output_file)
+        cmd = ["semgrep", "scan", "--config=auto", "--json", "-o", output_file, target_path]
+        try:
+            subprocess.run(cmd, capture_output=True)
+        except Exception as e:
+            print(f"[!] Erreur d'exécution de Semgrep : {e}")
+            
+        if os.path.exists(output_file):
+            try:
+                with open(output_file, "r") as f:
+                    data = json.load(f)
+                    for result in data.get("results", []):
+                        sast_results.append({
+                            "template-id": result.get("check_id"),
+                            "info": {
+                                "name": f"Semgrep SAST: {result.get('extra', {}).get('message')}",
+                                "severity": result.get("extra", {}).get("severity", "").lower(),
+                                "description": f"Fichier: {result.get('path')}:{result.get('start', {}).get('line')}\nExplication: {result.get('extra', {}).get('metadata', {}).get('description', '')}"
+                            },
+                            "type": "sast",
+                            "host": target_path,
+                            "matched-at": f"{result.get('path')}#L{result.get('start', {}).get('line')}"
+                        })
+            except Exception as e:
+                print(f"[!] Erreur lecture rapports Semgrep : {e}")
+            finally:
+                if os.path.exists(output_file):
+                    os.remove(output_file)
+                
+    return sast_results
+
+def run_trivy_scan(target_image_or_path):
+    """Exécute un scan de conteneur ou de filesystem avec Trivy."""
+    trivy_results = []
+    
+    print(f"[*] Lancement de Trivy sur la cible : {target_image_or_path}")
+    output_file = "trivy_results.json"
+    if os.path.exists(output_file):
+        os.remove(output_file)
+        
+    if os.path.exists(target_image_or_path):
+        cmd = ["trivy", "fs", "--format", "json", "--output", output_file, target_image_or_path]
+    else:
+        cmd = ["trivy", "image", "--format", "json", "--output", output_file, target_image_or_path]
+        
+    try:
+        subprocess.run(cmd, capture_output=True)
+    except Exception as e:
+        print(f"[!] Erreur d'exécution de Trivy : {e}")
+    
+    if os.path.exists(output_file):
+        try:
+            with open(output_file, "r") as f:
+                data = json.load(f)
+                for report in data.get("Results", []):
+                    target = report.get("Target", "")
+                    for vuln in report.get("Vulnerabilities", []):
+                        severity = vuln.get("Severity", "").lower()
+                        if severity in ["info", "unknown", "low"]:
+                            continue
+                        trivy_results.append({
+                            "template-id": vuln.get("VulnerabilityID"),
+                            "info": {
+                                "name": f"Trivy: {vuln.get('PkgName')} - {vuln.get('Title', 'Vulnerability')}",
+                                "severity": severity,
+                                "description": f"Package: {vuln.get('PkgName')} (Installed: {vuln.get('InstalledVersion')}, Fixed: {vuln.get('FixedVersion')})\nDescription: {vuln.get('Description')}"
+                            },
+                            "type": "container",
+                            "host": target_image_or_path,
+                            "matched-at": f"{target} ({vuln.get('VulnerabilityID')})"
+                        })
+        except Exception as e:
+            print(f"[!] Erreur lecture rapports Trivy : {e}")
+        finally:
+            if os.path.exists(output_file):
+                os.remove(output_file)
+            
+    return trivy_results
 
 def main():
     parser = argparse.ArgumentParser(description="PoC Scanner de Vulnérabilités IA (Local)")

@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "sentient-ai.fullname" . }}
+  labels:
+    {{- include "sentient-ai.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "sentient-ai.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "sentient-ai.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8501
+              protocol: TCP
+          env:
+            - name: OLLAMA_BASE_URL
+              value: "http://{{ include "sentient-ai.fullname" . }}-ollama:11434"
+          volumeMounts:
+            - name: sentient-storage
+              mountPath: /app/audits.db
+              subPath: audits.db
+            - name: sentient-storage
+              mountPath: /app/reports
+              subPath: reports
+            - name: sentient-storage
+              mountPath: /app/rag_db
+              subPath: rag_db
+      volumes:
+        - name: sentient-storage
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "sentient-ai.fullname" . }}-pvc
+          {{- else }}
+          emptyDir: {}
+          {{- end }}

@@ -5,8 +5,8 @@ import altair as alt
 import random
 import json
 from datetime import datetime
-from database import init_db, add_scan, get_history
-from scanner import discover_active_hosts, scan_nuclei, analyze_with_ollama, export_to_pdf
+from database import init_db, add_scan, get_history, add_schedule, get_schedules, delete_schedule, update_schedule_last_run
+from scanner import discover_active_hosts, scan_nuclei, analyze_with_ollama, export_to_pdf, run_recon_pipeline, run_sast_scan, run_trivy_scan
 from alerts import send_webhook_notification
 import rag
 import defectdojo
@@ -14,6 +14,119 @@ import chat
 import report_config
 import compliance
 import roi_calculator
+import threading
+import time
+import sqlite3
+
+def scheduler_loop():
+    """Vérifie périodiquement s'il y a des scans planifiés à exécuter."""
+    while True:
+        # Attendre 30 secondes
+        time.sleep(30)
+        try:
+            conn = sqlite3.connect("audits.db")
+            cursor = conn.cursor()
+            # Créer la table si absente au cas où
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS schedules (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    target TEXT NOT NULL,
+                    frequency TEXT NOT NULL,
+                    nmap_mode TEXT NOT NULL,
+                    nuclei_tags TEXT,
+                    report_lang TEXT NOT NULL,
+                    last_run TEXT,
+                    next_run TEXT NOT NULL
+                )
+            ''')
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+            cursor.execute('SELECT id, target, frequency, nmap_mode, nuclei_tags, report_lang, next_run FROM schedules')
+            rows = cursor.fetchall()
+            
+            for row in rows:
+                sid, target, frequency, nmap_mode, nuclei_tags_str, report_lang, next_run = row
+                
+                # Vérifier si next_run <= now_str
+                if next_run <= now_str:
+                    print(f"[*] Déclenchement automatique du scan planifié {sid} pour {target}...")
+                    
+                    # 1. Résoudre les tags Nuclei
+                    tags = None
+                    if nuclei_tags_str:
+                        tags = [t.strip() for t in nuclei_tags_str.split(",") if t.strip()]
+                        
+                    # 2. Exécuter le scan de découverte réseau
+                    try:
+                        active_hosts = discover_active_hosts(target, nmap_mode=nmap_mode)
+                        if active_hosts:
+                            # 3. Scan de vulnérabilités
+                            nuclei_results = scan_nuclei(active_hosts, selected_tags=tags)
+                            
+                            # 4. Analyse IA
+                            target_desc = f"{target} (Scan Planifié)"
+                            markdown_report = analyze_with_ollama(target_desc, nuclei_results, language=report_lang)
+                            
+                            # 5. Export PDF
+                            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                            os.makedirs("reports", exist_ok=True)
+                            pdf_filename = f"reports/audit_sched_{timestamp}.pdf"
+                            md_filename = f"reports/audit_sched_{timestamp}.md"
+                            
+                            with open(md_filename, "w", encoding="utf-8") as f_md:
+                                f_md.write(markdown_report)
+                            
+                            export_to_pdf(markdown_report, pdf_filename)
+                            
+                            # 6. Ajouter dans l'historique
+                            vulns_count = len(nuclei_results)
+                            hosts_count = len(active_hosts)
+                            vulns_json = json.dumps(nuclei_results)
+                            
+                            conn_write = sqlite3.connect("audits.db")
+                            cursor_write = conn_write.cursor()
+                            cursor_write.execute('''
+                                INSERT INTO scans (date, target, hosts_found, vulnerabilities_found, report_path, vulnerabilities_json)
+                                VALUES (?, ?, ?, ?, ?, ?)
+                            ''', (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), target, hosts_count, vulns_count, pdf_filename, vulns_json))
+                            conn_write.commit()
+                            conn_write.close()
+                            
+                            # 7. Envoyer notification
+                            try:
+                                send_webhook_notification(target, hosts_count, vulns_count, pdf_filename)
+                            except Exception as e_web:
+                                print(f"[!] Erreur webhook : {e_web}")
+                    except Exception as ex:
+                        print(f"[!] Erreur lors de l'exécution du scan planifié {sid} : {ex}")
+                        
+                    # 8. Mettre à jour next_run selon la récurrence
+                    next_run_dt = datetime.strptime(next_run, "%Y-%m-%d %H:%M")
+                    if frequency == "quotidien":
+                        from datetime import timedelta
+                        new_next_run = (next_run_dt + timedelta(days=1)).strftime("%Y-%m-%d %H:%M")
+                    elif frequency == "hebdomadaire":
+                        from datetime import timedelta
+                        new_next_run = (next_run_dt + timedelta(weeks=1)).strftime("%Y-%m-%d %H:%M")
+                    elif frequency == "mensuel":
+                        from datetime import timedelta
+                        new_next_run = (next_run_dt + timedelta(days=30)).strftime("%Y-%m-%d %H:%M")
+                    else:
+                        from datetime import timedelta
+                        new_next_run = (next_run_dt + timedelta(days=1)).strftime("%Y-%m-%d %H:%M")
+                        
+                    cursor.execute('UPDATE schedules SET last_run = ?, next_run = ? WHERE id = ?', 
+                                   (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), new_next_run, sid))
+                    conn.commit()
+            
+            conn.close()
+        except Exception as e:
+            print(f"[!] Erreur de boucle du planificateur : {e}")
+
+# Lancement unique du thread de planification
+if 'scheduler_started' not in st.session_state:
+    st.session_state.scheduler_started = True
+    t_sched = threading.Thread(target=scheduler_loop, daemon=True)
+    t_sched.start()
 
 # -----------------------------------------------------------------------------
 # Configuration Globale
@@ -26,6 +139,38 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# -----------------------------------------------------------------------------
+# MODE DE PARTAGE SÉCURISÉ (Lecture seule)
+# -----------------------------------------------------------------------------
+if "share" in st.query_params:
+    share_token = st.query_params["share"]
+    try:
+        conn = sqlite3.connect("audits.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT target, date, report_path FROM scans WHERE id = ?", (share_token,))
+        row = cursor.fetchone()
+        conn.close()
+        
+        if row:
+            target, date, report_path = row
+            st.markdown(f"<h2 style='color:#7c3aed;'>🛡️ Sentient AI - Rapport partagé</h2>", unsafe_allow_html=True)
+            st.markdown(f"**Cible :** `{target}` | **Généré le :** `{date}`", unsafe_allow_html=True)
+            st.markdown("---")
+            
+            # Charger le contenu markdown
+            md_path = report_path.replace(".pdf", ".md")
+            if os.path.exists(md_path):
+                with open(md_path, "r", encoding="utf-8") as f_md:
+                    md_content = f_md.read()
+                st.markdown(md_content)
+            else:
+                st.error("Le contenu du rapport n'est plus disponible sur le serveur.")
+        else:
+            st.error("Lien de partage invalide ou expiré.")
+    except Exception as e_share:
+        st.error(f"Erreur d'accès au partage : {e_share}")
+    st.stop()
 
 def get_system_telemetry():
     """Récupère les informations système en temps réel pour le CPU, RAM et GPU."""
@@ -309,6 +454,7 @@ with st.sidebar:
             "📊 Tableau de Bord", 
             "⚡ Lancer un Audit", 
             "💰 Analyse de Risque ROI",
+            "📅 Planification de Scans",
             "📂 Centre de Rapports", 
             "💬 Assistant Virtuel",
             "🧠 Base de Connaissances (RAG)", 
@@ -638,6 +784,41 @@ elif menu == "⚡ Lancer un Audit" or st.session_state.get('force_menu') == "⚡
             use_dns = st.checkbox("Vulnérabilités DNS (dns)", value=True, help="Recherche les failles ou défauts de configuration liés aux enregistrements DNS.")
             use_network_services = st.checkbox("Services Réseau (TCP/SSH/FTP)", value=True, help="Recherche de vulnérabilités sur les protocoles réseau (FTP, SSH, SMTP, RDP, etc.).")
             
+        with st.expander("🔑 Options d'Authentification, Réseau Avancé & DevSecOps", expanded=False):
+            st.markdown("**🛡️ Reconnaissance Étendue & Fuzzing**")
+            col_rec1, col_rec2 = st.columns(2)
+            with col_rec1:
+                use_subfinder = st.checkbox("Recherche de sous-domaines (Subfinder)", value=False, help="Découvrir les sous-domaines associés.")
+            with col_rec2:
+                use_gobuster = st.checkbox("Découverte de répertoires (Gobuster)", value=False, help="Fuzzer les répertoires web courants.")
+                
+            st.markdown("**🔑 Scans Authentifiés (Credentials)**")
+            col_auth1, col_auth2 = st.columns(2)
+            with col_auth1:
+                auth_cookies = st.text_input("En-têtes HTTP ou Cookies (ex: Cookie: session=123)", help="Ajouté aux requêtes HTTP de Nuclei.")
+            with col_auth2:
+                ssh_username = st.text_input("Nom d'utilisateur SSH", help="Pour authentification SSH avec Nmap.")
+                ssh_password = st.text_input("Mot de passe SSH", type="password", help="Mot de passe SSH pour Nmap.")
+                ssh_key = st.text_input("Chemin de la clé SSH privée", help="Fichier de clé SSH locale pour Nmap.")
+                
+            st.markdown("**🎛️ Évasion de Pare-feu (Firewall Evasion)**")
+            col_eva1, col_eva2, col_eva3 = st.columns(3)
+            with col_eva1:
+                eva_frag = st.checkbox("Fragmenter les paquets (-f)", help="Diviser les paquets IP pour contourner les filtres.")
+            with col_eva2:
+                eva_decoy = st.text_input("Adresses de leurre (-D)", placeholder="ex: ME,192.168.1.100,192.168.1.101", help="Envoyer des scans factices depuis d'autres IPs.")
+            with col_eva3:
+                eva_mac = st.text_input("Usurper l'adresse MAC", placeholder="ex: 00:11:22:33:44:55", help="Adresse MAC usurpée pour le scan.")
+                
+            st.markdown("**⚙️ Analyse DevSecOps (SAST & Conteneurs)**")
+            col_devsec1, col_devsec2 = st.columns(2)
+            with col_devsec1:
+                use_sast = st.checkbox("Analyse Statique de Code (SAST - Semgrep/Bandit)", help="Analyser le dossier de code source de la cible.")
+                sast_path = st.text_input("Chemin local du code source à scanner", value=".", help="Dossier contenant le code source.")
+            with col_devsec2:
+                use_trivy = st.checkbox("Scan d'image de Conteneur / Filesystem (Trivy)", help="Rechercher des failles logicielles et OS dans un conteneur.")
+                trivy_target = st.text_input("Image de conteneur ou chemin à scanner (ex: debian:latest)", help="Nom de l'image Docker ou dossier.")
+            
         st.markdown("</div><br>", unsafe_allow_html=True)
         submitted = st.form_submit_button("🚀 INITIALISER LA CHAÎNE D'AUDIT", type="primary")
 
@@ -695,9 +876,34 @@ elif menu == "⚡ Lancer un Audit" or st.session_state.get('force_menu') == "⚡
                         status2.update(label="Vulnérabilités de démonstration chargées.", state="complete", expanded=False)
                     progress_bar.progress(50)
                 else:
+                    # Étape optionnelle de Reconnaissance Étendue
+                    recon_hosts = []
+                    if use_subfinder or use_gobuster:
+                        with st.status("Étape 0 : Reconnaissance Étendue (Subfinder / Gobuster)", expanded=True) as status_rec:
+                            st.write("Exécution des outils de reconnaissance...")
+                            recon_hosts = run_recon_pipeline(target_input, run_subfinder=use_subfinder, run_gobuster=use_gobuster)
+                            status_rec.update(label=f"Reconnaissance terminée : {len(recon_hosts)} sous-domaines/chemins identifiés.", state="complete", expanded=False)
+                            
                     with st.status("Étape 1 : Découverte du périmètre réseau (Nmap)", expanded=True) as status1:
                         st.write("Exécution des sondes réseau...")
-                        active_hosts = discover_active_hosts(target_input, nmap_mode, use_agressive, use_vuln_script)
+                        
+                        # Configuration de l'évasion & authentification
+                        evasion_opts = {
+                            "fragment": eva_frag,
+                            "decoy": eva_decoy if eva_decoy else None,
+                            "spoof_mac": eva_mac if eva_mac else None
+                        }
+                        ssh_creds = {
+                            "username": ssh_username if ssh_username else None,
+                            "password": ssh_password if ssh_password else None,
+                            "key_path": ssh_key if ssh_key else None
+                        }
+                        
+                        active_hosts = discover_active_hosts(target_input, nmap_mode, use_agressive, use_vuln_script, evasion_options=evasion_opts, ssh_credentials=ssh_creds)
+                        # Fusionner avec les hôtes découverts par subfinder/gobuster
+                        if recon_hosts:
+                            active_hosts = list(set(active_hosts + recon_hosts))
+                            
                         if not active_hosts:
                             status1.update(label="Aucun actif réseau détecté.", state="error", expanded=False)
                             st.stop()
@@ -727,10 +933,35 @@ elif menu == "⚡ Lancer un Audit" or st.session_state.get('force_menu') == "⚡
                     if not selected_tags and "Full" not in nuclei_mode_sel:
                         selected_tags = ["cve", "default-login", "exposure", "misconfig"] # Fallback robuste
                     
+                    # Parsing des en-têtes personnalisés (ex: Cookie: session=abc)
+                    custom_headers = {}
+                    if auth_cookies:
+                        if ":" in auth_cookies:
+                            hk, hv = auth_cookies.split(":", 1)
+                            custom_headers[hk.strip()] = hv.strip()
+                        else:
+                            custom_headers["Cookie"] = auth_cookies.strip()
+                            
                     with st.status("Étape 2 : Analyse de vulnérabilités (Nuclei)", expanded=True) as status2:
                         st.write("Exécution des templates de sécurité (Cette étape est longue)...")
-                        nuclei_results = scan_nuclei(active_hosts, selected_tags if selected_tags else None)
+                        nuclei_results = scan_nuclei(active_hosts, selected_tags if selected_tags else None, headers=custom_headers)
                         status2.update(label=f"Analyse terminée : {len(nuclei_results)} anomalies relevées.", state="complete", expanded=False)
+                    
+                    # Exécuter les outils DevSecOps additionnels
+                    if use_sast:
+                        with st.status("Étape SAST : Analyse statique de code (Semgrep / Bandit)", expanded=True) as status_sast:
+                            st.write(f"Analyse du dossier de code source : {sast_path}...")
+                            sast_results = run_sast_scan(sast_path)
+                            nuclei_results.extend(sast_results)
+                            status_sast.update(label=f"SAST terminée : {len(sast_results)} failles détectées.", state="complete", expanded=False)
+                            
+                    if use_trivy:
+                        with st.status("Étape Trivy : Scan de conteneur / Filesystem", expanded=True) as status_trivy:
+                            st.write(f"Analyse Trivy sur la cible : {trivy_target}...")
+                            trivy_results = run_trivy_scan(trivy_target)
+                            nuclei_results.extend(trivy_results)
+                            status_trivy.update(label=f"Trivy terminée : {len(trivy_results)} failles détectées.", state="complete", expanded=False)
+                            
                     progress_bar.progress(50)
                 
                 with st.status("Étape 3 : Traitement par l'IA (Ollama)", expanded=True) as status3:
@@ -1183,6 +1414,54 @@ elif menu == "💬 Assistant Virtuel":
                 # Sauvegarde de la réponse
                 st.session_state[session_key].append({"role": "assistant", "content": full_response})
 
+elif menu == "📅 Planification de Scans":
+    st.markdown("<h2>📅 Planificateur de Scans de Sécurité</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='color:#a1a1aa;'>Planifiez des audits récurrents automatisés sur votre infrastructure.</p><br>", unsafe_allow_html=True)
+    
+    # 1. Formulaire pour ajouter une planification
+    with st.form("add_schedule_form"):
+        st.markdown("### ➕ Ajouter une planification")
+        col_sch1, col_sch2 = st.columns(2)
+        with col_sch1:
+            sch_target = st.text_input("🎯 Cible (IP, URL, CIDR)", placeholder="ex: 192.168.1.1 ou scanme.nmap.org")
+            sch_freq = st.selectbox("Fréquence", ["quotidien", "hebdomadaire", "mensuel"])
+        with col_sch2:
+            sch_nmap = st.selectbox("Mode Nmap", ["T4", "Fast", "Full"])
+            sch_tags = st.text_input("Tags Nuclei (séparés par des virgules, optionnel)", placeholder="ex: cve,rce,exposure")
+            sch_lang = st.selectbox("Langue du rapport", ["Français", "Anglais", "Espagnol", "Allemand"])
+            
+        submitted_sch = st.form_submit_button("📅 Enregistrer la planification", type="primary")
+        
+        if submitted_sch:
+            if not sch_target:
+                st.error("Veuillez spécifier une cible.")
+            else:
+                next_run = datetime.now().strftime("%Y-%m-%d %H:%M")
+                add_schedule(sch_target, sch_freq, sch_nmap, sch_tags, sch_lang, next_run)
+                st.success(f"Planification pour {sch_target} enregistrée avec succès !")
+                st.rerun()
+                
+    st.markdown("---")
+    st.markdown("### 📋 Planifications actives")
+    
+    # 2. Afficher la liste des planifications
+    schedules_list = get_schedules()
+    if not schedules_list:
+        st.info("Aucune planification active.")
+    else:
+        for sch in schedules_list:
+            col_info, col_del = st.columns([5, 1])
+            with col_info:
+                st.markdown(f"""
+                **Cible :** `{sch['target']}` | **Fréquence :** `{sch['frequency']}` | **Langue :** `{sch['report_lang']}`  
+                *Dernière exécution :* `{sch['last_run'] if sch['last_run'] else 'Jamais'}` | *Prochaine exécution :* `{sch['next_run']}`
+                """)
+            with col_del:
+                if st.button("🗑️ Supprimer", key=f"del_sch_{sch['id']}"):
+                    delete_schedule(sch['id'])
+                    st.success("Planification supprimée.")
+                    st.rerun()
+
 elif menu == "📂 Centre de Rapports":
     st.markdown("<h2>Centre de Rapports (Vault)</h2>", unsafe_allow_html=True)
     st.info("Retrouvez ici tous les PDF générés lors de vos précédents scans.")
@@ -1198,6 +1477,13 @@ elif menu == "📂 Centre de Rapports":
                         st.download_button("📥 Télécharger le PDF", f, file_name=os.path.basename(entry['report_path']), key=f"dl_{entry['id']}", type="primary")
                 else:
                     st.error("PDF indisponible.")
+                
+                # Génération de lien de partage temporaire/sécurisé
+                st.markdown("<br>", unsafe_allow_html=True)
+                share_url = f"http://localhost:8501/?share={entry['id']}"
+                if st.button("🔗 Générer lien de partage", key=f"btn_share_{entry['id']}"):
+                    st.success("Lien de partage généré :")
+                    st.code(share_url)
                     
             with col_vault2:
                 # Bouton de génération de remédiation SecOps (Ansible / Bash)
@@ -1241,6 +1527,152 @@ elif menu == "📂 Centre de Rapports":
                     key=f"dl_rem_txt_{entry['id']}"
                 )
 
+            # Intégration d'outils de ticketing (Jira, GitHub, GitLab)
+            st.markdown("---")
+            st.markdown("##### 🎫 Exporter vers Ticketing (Jira / GitHub / GitLab)")
+            
+            with st.expander("Créer un ticket pour cet audit", expanded=False):
+                ticket_platform = st.selectbox("Plateforme de destination", ["GitHub Issues", "GitLab Issues", "Jira"], key=f"plat_{entry['id']}")
+                
+                if ticket_platform == "GitHub Issues":
+                    gh_owner = st.text_input("Propriétaire du dépôt (Owner / Org)", placeholder="ex: mon-organisation", key=f"gh_own_{entry['id']}")
+                    gh_repo = st.text_input("Nom du dépôt (Repository)", placeholder="ex: mon-application", key=f"gh_rep_{entry['id']}")
+                    gh_token = st.text_input("Jetons d'accès personnel (Token)", type="password", key=f"gh_tok_{entry['id']}")
+                    
+                    if st.button("🚀 Pousser l'Issue GitHub", key=f"gh_btn_{entry['id']}"):
+                        import requests
+                        if not (gh_owner and gh_repo and gh_token):
+                            st.error("Veuillez remplir tous les champs.")
+                        else:
+                            with st.spinner("Création de l'issue GitHub..."):
+                                url = f"https://api.github.com/repos/{gh_owner}/{gh_repo}/issues"
+                                headers = {
+                                    "Authorization": f"token {gh_token}",
+                                    "Accept": "application/vnd.github.v3+json"
+                                }
+                                vuln_summary = f"Audit de sécurité Sentient AI sur {entry['target']} du {entry['date']}\n"
+                                vuln_summary += f"Nombre d'hôtes : {entry['hosts_found']} | Vulnérabilités : {entry['vulnerabilities_found']}\n\n"
+                                if entry.get("vulnerabilities_json"):
+                                    try:
+                                        v_list = json.loads(entry["vulnerabilities_json"])
+                                        for idx, v in enumerate(v_list):
+                                            vuln_summary += f"### {idx+1}. {v.get('info', {}).get('name')}\n"
+                                            vuln_summary += f"- **Sévérité :** {v.get('info', {}).get('severity')}\n"
+                                            vuln_summary += f"- **Hôte :** {v.get('host')}\n"
+                                            vuln_summary += f"- **Description :** {v.get('info', {}).get('description')}\n\n"
+                                    except:
+                                        pass
+                                
+                                payload = {
+                                    "title": f"🛡️ Audit de Sécurité Sentient AI - {entry['target']}",
+                                    "body": vuln_summary
+                                }
+                                r = requests.post(url, headers=headers, json=payload)
+                                if r.status_code == 201:
+                                    st.success(f"Issue GitHub créée avec succès ! Numéro: {r.json().get('number')}")
+                                else:
+                                    st.error(f"Échec de création (HTTP {r.status_code}) : {r.text}")
+                                    
+                elif ticket_platform == "GitLab Issues":
+                    gl_url = st.text_input("URL de l'instance GitLab", value="https://gitlab.com", key=f"gl_url_{entry['id']}")
+                    gl_project = st.text_input("ID du Projet (Project ID)", placeholder="ex: 12345678", key=f"gl_proj_{entry['id']}")
+                    gl_token = st.text_input("Jetons d'accès personnel (Token)", type="password", key=f"gl_tok_{entry['id']}")
+                    
+                    if st.button("🚀 Pousser l'Issue GitLab", key=f"gl_btn_{entry['id']}"):
+                        import requests
+                        if not (gl_project and gl_token):
+                            st.error("Veuillez remplir tous les champs.")
+                        else:
+                            with st.spinner("Création de l'issue GitLab..."):
+                                url = f"{gl_url.rstrip('/')}/api/v4/projects/{gl_project}/issues"
+                                headers = {
+                                    "PRIVATE-TOKEN": gl_token
+                                }
+                                vuln_summary = f"Audit de sécurité Sentient AI sur {entry['target']} du {entry['date']}\n"
+                                vuln_summary += f"Nombre d'hôtes : {entry['hosts_found']} | Vulnérabilités : {entry['vulnerabilities_found']}\n\n"
+                                if entry.get("vulnerabilities_json"):
+                                    try:
+                                        v_list = json.loads(entry["vulnerabilities_json"])
+                                        for idx, v in enumerate(v_list):
+                                            vuln_summary += f"### {idx+1}. {v.get('info', {}).get('name')}\n"
+                                            vuln_summary += f"- **Sévérité :** {v.get('info', {}).get('severity')}\n"
+                                            vuln_summary += f"- **Hôte :** {v.get('host')}\n"
+                                            vuln_summary += f"- **Description :** {v.get('info', {}).get('description')}\n\n"
+                                    except:
+                                        pass
+                                
+                                payload = {
+                                    "title": f"🛡️ Audit de Sécurité Sentient AI - {entry['target']}",
+                                    "description": vuln_summary
+                                }
+                                r = requests.post(url, headers=headers, json=payload)
+                                if r.status_code == 201:
+                                    st.success(f"Issue GitLab créée avec succès ! ID: {r.json().get('iid')}")
+                                else:
+                                    st.error(f"Échec de création (HTTP {r.status_code}) : {r.text}")
+                                    
+                elif ticket_platform == "Jira":
+                    jira_url = st.text_input("URL Jira Instance", placeholder="https://votre-instance.atlassian.net", key=f"ji_url_{entry['id']}")
+                    jira_email = st.text_input("Email d'utilisateur Jira", key=f"ji_usr_{entry['id']}")
+                    jira_token = st.text_input("Token API Jira", type="password", key=f"ji_tok_{entry['id']}")
+                    jira_project = st.text_input("Clé du Projet (Project Key)", placeholder="ex: SEC", key=f"ji_proj_{entry['id']}")
+                    
+                    if st.button("🚀 Pousser le Ticket Jira", key=f"ji_btn_{entry['id']}"):
+                        import requests
+                        import base64
+                        if not (jira_url and jira_email and jira_token and jira_project):
+                            st.error("Veuillez remplir tous les champs.")
+                        else:
+                            with st.spinner("Création du ticket Jira..."):
+                                url = f"{jira_url.rstrip('/')}/rest/api/3/issue"
+                                auth_str = base64.b64encode(f"{jira_email}:{jira_token}".encode()).decode()
+                                headers = {
+                                    "Authorization": f"Basic {auth_str}",
+                                    "Content-Type": "application/json",
+                                    "Accept": "application/json"
+                                }
+                                vuln_summary = f"Audit de sécurité Sentient AI sur {entry['target']} du {entry['date']}\n"
+                                vuln_summary += f"Nombre d'hôtes : {entry['hosts_found']} | Vulnérabilités : {entry['vulnerabilities_found']}\n\n"
+                                if entry.get("vulnerabilities_json"):
+                                    try:
+                                        v_list = json.loads(entry["vulnerabilities_json"])
+                                        for idx, v in enumerate(v_list):
+                                            vuln_summary += f"{idx+1}. {v.get('info', {}).get('name')} (Sévérité: {v.get('info', {}).get('severity')} - Hôte: {v.get('host')})\n"
+                                    except:
+                                        pass
+                                
+                                payload = {
+                                    "fields": {
+                                        "project": {
+                                            "key": jira_project
+                                        },
+                                        "summary": f"🛡️ Audit de Sécurité Sentient AI - {entry['target']}",
+                                        "description": {
+                                            "type": "doc",
+                                            "version": 1,
+                                            "content": [
+                                                {
+                                                    "type": "paragraph",
+                                                    "content": [
+                                                        {
+                                                            "type": "text",
+                                                            "text": vuln_summary
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        "issuetype": {
+                                            "name": "Task"
+                                        }
+                                    }
+                                }
+                                r = requests.post(url, headers=headers, json=payload)
+                                if r.status_code == 201:
+                                    st.success(f"Ticket Jira créé avec succès ! Clé: {r.json().get('key')}")
+                                else:
+                                    st.error(f"Échec de création (HTTP {r.status_code}) : {r.text}")
+
 elif menu == "🧠 Base de Connaissances (RAG)":
     st.markdown("<h2>Base de Connaissances (RAG)</h2>", unsafe_allow_html=True)
     st.markdown("<p style='color:#a1a1aa;'>Alimentez l'IA avec vos propres standards de sécurité (PDF, TXT, MD).</p><br>", unsafe_allow_html=True)
@@ -1269,6 +1701,18 @@ elif menu == "🧠 Base de Connaissances (RAG)":
                     st.warning("Aucun texte exploitable n'a été trouvé dans ces fichiers.")
         else:
             st.error("Veuillez sélectionner au moins un document.")
+            
+    st.markdown("---")
+    st.markdown("### 🏛️ Référentiels Standards Cyber")
+    st.markdown("Vous pouvez charger directement les référentiels de sécurité standards pré-intégrés (ANSSI, CIS Benchmarks, OWASP Top 10) dans la base de connaissances locale.")
+    if st.button("📥 Pré-charger les référentiels standards (ANSSI, CIS, OWASP)", type="secondary"):
+        with st.spinner("Chargement et vectorisation des référentiels..."):
+            total_added = rag.prepopulate_cyber_guidelines(force=True)
+            if total_added > 0:
+                st.success(f"Référentiels pré-chargés avec succès ! {total_added} paragraphes de connaissances ont été ajoutés.")
+                st.rerun()
+            else:
+                st.info("Les référentiels sont déjà présents ou n'ont pas pu être chargés.")
 
 elif menu == "🖥️ Diagnostic & Performance":
     st.markdown("<h2>🖥️ Diagnostic Matériel & Performance IA</h2>", unsafe_allow_html=True)
@@ -1636,3 +2080,67 @@ elif menu == "⚙️ Configuration":
             ):
                 st.success("Configurations d'IA et de Webhooks sauvegardées avec succès.")
                 st.rerun()
+
+    st.markdown("---")
+    st.markdown("### 📝 Éditeur de Templates Nuclei YAML")
+    st.markdown("Créez, modifiez ou testez des templates de vulnérabilités Nuclei à la volée.")
+    
+    templates_dir = "./custom_templates"
+    os.makedirs(templates_dir, exist_ok=True)
+    existing_templates = [f for f in os.listdir(templates_dir) if f.endswith(".yaml")]
+    
+    col_t1, col_t2 = st.columns([2, 1])
+    with col_t1:
+        tpl_action = st.selectbox("Action", ["Modifier un template existant", "Créer un nouveau template"])
+    
+    selected_tpl = ""
+    tpl_name_new = ""
+    tpl_content = ""
+    
+    if tpl_action == "Modifier un template existant":
+        if not existing_templates:
+            st.info("Aucun template personnalisé trouvé.")
+        else:
+            with col_t2:
+                selected_tpl = st.selectbox("Sélectionner un template", existing_templates)
+            if selected_tpl:
+                tpl_path = os.path.join(templates_dir, selected_tpl)
+                with open(tpl_path, "r", encoding="utf-8") as f_tpl:
+                    tpl_content = f_tpl.read()
+    else:
+        with col_t2:
+            tpl_name_new = st.text_input("Nom du fichier template (ex: test.yaml)")
+            
+        tpl_content = """id: custom-vulnerability-check
+info:
+  name: Custom Vulnerability Check
+  author: Sentient AI
+  severity: medium
+  description: Description of the vulnerability.
+  
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/admin"
+    matchers:
+      - type: word
+        words:
+          - "Administration Console"
+"""
+        
+    tpl_code = st.text_area("Contenu du template (YAML)", value=tpl_content, height=300)
+    
+    if st.button("💾 Enregistrer le Template", type="primary"):
+        if tpl_action == "Modifier un template existant" and selected_tpl:
+            tpl_path = os.path.join(templates_dir, selected_tpl)
+            with open(tpl_path, "w", encoding="utf-8") as f_tpl:
+                f_tpl.write(tpl_code)
+            st.success(f"Template '{selected_tpl}' sauvegardé avec succès.")
+        elif tpl_action == "Créer un nouveau template" and tpl_name_new:
+            if not tpl_name_new.endswith(".yaml"):
+                tpl_name_new += ".yaml"
+            tpl_path = os.path.join(templates_dir, tpl_name_new)
+            with open(tpl_path, "w", encoding="utf-8") as f_tpl:
+                f_tpl.write(tpl_code)
+            st.success(f"Nouveau template '{tpl_name_new}' créé avec succès.")
+            st.rerun()

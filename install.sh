@@ -52,6 +52,158 @@ if [ -d /run/systemd/system ]; then
     HAS_SYSTEMD=true
 fi
 
+# -----------------------------------------------------------------------------
+# FONCTIONS DE L'INTERFACE UTILISATEUR INTERACTIVE (TUI)
+# -----------------------------------------------------------------------------
+run_docker_compose_install() {
+    echo "====================================================="
+    echo "🚀 Déploiement unifié avec Docker Compose..."
+    echo "====================================================="
+    
+    if ! command -v docker &> /dev/null; then
+        echo "[!] Docker n'est pas détecté. Tentative d'installation de Docker..."
+        if [ "$OS_TYPE" = "Linux" ]; then
+            curl -fsSL https://get.docker.com | sh
+        else
+            echo "[!] Veuillez installer Docker sur votre système d'abord."
+            exit 1
+        fi
+    fi
+    
+    if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
+        echo "[!] Docker Compose n'est pas détecté. Tentative d'installation..."
+        sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        sudo chmod +x /usr/local/bin/docker-compose
+    fi
+    
+    echo "[*] Lancement de la stack avec Docker Compose..."
+    if docker compose version &> /dev/null; then
+        docker compose up -d --build
+    else
+        docker-compose up -d --build
+    fi
+    
+    echo "====================================================="
+    echo "✅ Déploiement Docker Compose lancé avec succès !"
+    echo "Interface accessible sur : http://localhost:8501"
+    echo "====================================================="
+}
+
+uninstall_sentient() {
+    echo "====================================================="
+    echo "🗑️ Désinstallation de Sentient AI..."
+    echo "====================================================="
+    if [ "$HAS_SYSTEMD" = true ]; then
+        sudo systemctl stop sentient || true
+        sudo systemctl disable sentient || true
+        sudo rm -f /etc/systemd/system/sentient.service
+        sudo systemctl daemon-reload
+    fi
+    if [ "$IS_ROOT" = true ]; then
+        rm -rf /opt/sentient
+        rm -f /usr/local/bin/sentient
+    else
+        rm -rf "$HOME/.sentient"
+        rm -f "$HOME/.local/bin/sentient"
+    fi
+    echo "[+] Désinstallation terminée."
+}
+
+choose_model_tui() {
+    if command -v dialog &> /dev/null; then
+        cmd=(dialog --keep-tput --menu "Sélectionnez le modèle Ollama à télécharger" 15 60 4)
+        options=(
+            1 "Llama 3.1 8B (Recommandé - Standard)"
+            2 "Qwen 2.5 1.5B (Léger - CPU/Faible RAM)"
+            3 "Llama 3.1 70B (Lourd - GPU 24Go+)"
+            4 "Ne pas télécharger de modèle (Custom)"
+        )
+        model_choice=$("${cmd[@]}" "${options[@]}" 2>&1 >/dev/tty)
+    else
+        echo "--------------------------------------------- "
+        echo "Sélectionnez le modèle Ollama à télécharger :"
+        echo "--------------------------------------------- "
+        options=(
+            "Llama 3.1 8B (Recommandé - Standard)"
+            "Qwen 2.5 1.5B (Léger - CPU/Faible RAM)"
+            "Llama 3.1 70B (Lourd - GPU 24Go+)"
+            "Ne pas télécharger de modèle (Custom)"
+        )
+        select opt in "${options[@]}"; do
+            case $REPLY in
+                1) model_choice=1; break;;
+                2) model_choice=2; break;;
+                3) model_choice=3; break;;
+                4) model_choice=4; break;;
+                *) echo "Option invalide $REPLY";;
+            esac
+        done
+    fi
+
+    case $model_choice in
+        1) MODEL_NAME="llama3.1:8b";;
+        2) MODEL_NAME="qwen2.5:1.5b";;
+        3) MODEL_NAME="llama3.1:70b";;
+        4) MODEL_NAME="";;
+    esac
+}
+
+show_tui_menu() {
+    choice=1
+    if command -v dialog &> /dev/null; then
+        cmd=(dialog --keep-tput --menu "🛡️ Menu d'installation Sentient AI" 15 60 4)
+        options=(
+            1 "Installation complète Locale"
+            2 "Déploiement Docker Compose (Recommandé)"
+            3 "Désinstaller Sentient AI"
+            4 "Quitter"
+        )
+        choice=$("${cmd[@]}" "${options[@]}" 2>&1 >/dev/tty)
+    else
+        echo "============================================="
+        echo "🛡️ MENU D'INSTALLATION INTERACTIF SENTIENT AI"
+        echo "============================================="
+        echo "Veuillez choisir une option :"
+        options=(
+            "Installation complète Locale"
+            "Déploiement Docker Compose (Recommandé)"
+            "Désinstaller Sentient AI"
+            "Quitter"
+        )
+        select opt in "${options[@]}"; do
+            case $REPLY in
+                1) choice=1; break;;
+                2) choice=2; break;;
+                3) choice=3; break;;
+                4) choice=4; exit 0;;
+                *) echo "Option invalide $REPLY";;
+            esac
+        done
+    fi
+
+    case $choice in
+        1)
+            INSTALL_MODE="local"
+            choose_model_tui
+            ;;
+        2)
+            INSTALL_MODE="docker"
+            run_docker_compose_install
+            exit 0
+            ;;
+        3)
+            uninstall_sentient
+            exit 0
+            ;;
+        4)
+            exit 0
+            ;;
+    esac
+}
+
+# Lancer la TUI
+show_tui_menu
+
 # 3. Installation des dépendances système selon l'OS / gestionnaire
 echo "[*] Étape 1 : Installation des dépendances système..."
 
@@ -222,9 +374,13 @@ else
     sleep 5
 fi
 
-echo "[*] Étape 5 : Téléchargement du Modèle IA (llama3.1:8b)..."
-echo "Cela peut prendre un certain temps selon votre connexion internet."
-ollama pull llama3.1:8b || echo "[!] Échec du pull du modèle. Assurez-vous qu'Ollama tourne correctement."
+if [ -n "$MODEL_NAME" ]; then
+    echo "[*] Étape 5 : Téléchargement du Modèle IA ($MODEL_NAME)..."
+    echo "Cela peut prendre un certain temps selon votre connexion internet."
+    ollama pull "$MODEL_NAME" || echo "[!] Échec du pull du modèle $MODEL_NAME. Assurez-vous qu'Ollama tourne correctement."
+else
+    echo "[*] Étape 5 : Aucun modèle sélectionné pour le téléchargement automatique."
+fi
 
 # Arrêter l'ollama temporaire si démarré manuellement
 if [ -n "$OLLAMA_PID" ]; then
