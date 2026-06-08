@@ -6,10 +6,8 @@ except ImportError:
     pass
 
 def get_llm():
-    return Ollama(
-        model="llama3.1:8b",
-        base_url=os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-    )
+    from agents import get_configured_llm
+    return get_configured_llm()
 
 def stream_chat_response(report_md, chat_history, query, use_web=False):
     """

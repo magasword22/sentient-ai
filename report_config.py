@@ -24,7 +24,14 @@ def load_report_config():
             "high": 2000.0,
             "medium": 800.0,
             "low": 200.0
-        }
+        },
+        "llm_provider": "Ollama",
+        "llm_model": "llama3.1:8b",
+        "openai_api_key": "",
+        "anthropic_api_key": "",
+        "groq_api_key": "",
+        "webhook_url": "",
+        "webhook_provider": "Generic"
     }
     if os.path.exists(CONFIG_FILE):
         try:
@@ -44,29 +51,23 @@ def load_report_config():
             pass
     return default_config
 
-def save_report_config(company_name, primary_color, footer_text, logo_path, sector=None, company_size=None, data_sensitivity=None, custom_breach_costs=None, custom_remediation_costs=None):
+def save_report_config(company_name=None, primary_color=None, footer_text=None, logo_path=None, sector=None, company_size=None, data_sensitivity=None, custom_breach_costs=None, custom_remediation_costs=None, **kwargs):
     """Enregistre la configuration de personnalisation des rapports."""
-    config = {
-        "company_name": company_name,
-        "primary_color": primary_color,
-        "footer_text": footer_text,
-        "logo_path": logo_path,
-        "sector": sector or "Finance / Assurances",
-        "company_size": company_size or "PME (50 - 250 employés)",
-        "data_sensitivity": data_sensitivity or "PII standard (Noms, Emails)",
-        "custom_breach_costs": custom_breach_costs or {
-            "critical": 150000.0,
-            "high": 60000.0,
-            "medium": 15000.0,
-            "low": 3000.0
-        },
-        "custom_remediation_costs": custom_remediation_costs or {
-            "critical": 4000.0,
-            "high": 2000.0,
-            "medium": 800.0,
-            "low": 200.0
-        }
-    }
+    config = load_report_config()
+    
+    if company_name is not None: config["company_name"] = company_name
+    if primary_color is not None: config["primary_color"] = primary_color
+    if footer_text is not None: config["footer_text"] = footer_text
+    if logo_path is not None: config["logo_path"] = logo_path
+    if sector is not None: config["sector"] = sector
+    if company_size is not None: config["company_size"] = company_size
+    if data_sensitivity is not None: config["data_sensitivity"] = data_sensitivity
+    if custom_breach_costs is not None: config["custom_breach_costs"] = custom_breach_costs
+    if custom_remediation_costs is not None: config["custom_remediation_costs"] = custom_remediation_costs
+    
+    for key, val in kwargs.items():
+        config[key] = val
+        
     try:
         with open(CONFIG_FILE, 'w') as f:
             json.dump(config, f, indent=4)

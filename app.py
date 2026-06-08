@@ -7,6 +7,7 @@ import json
 from datetime import datetime
 from database import init_db, add_scan, get_history
 from scanner import discover_active_hosts, scan_nuclei, analyze_with_ollama, export_to_pdf
+from alerts import send_webhook_notification
 import rag
 import defectdojo
 import chat
@@ -753,6 +754,13 @@ elif menu == "⚡ Lancer un Audit" or st.session_state.get('force_menu') == "⚡
                 progress_bar.progress(100)
                 
             add_scan(target_input, len(active_hosts), len(nuclei_results), pdf_filename, vulnerabilities_json=json.dumps(nuclei_results))
+            
+            # Déclencher la notification Webhook
+            try:
+                send_webhook_notification(target_input, len(active_hosts), len(nuclei_results), pdf_filename)
+            except Exception:
+                pass
+                
             st.success("🎉 Opération terminée avec succès.")
             
             col_dl, col_dojo = st.columns(2)
@@ -1182,11 +1190,56 @@ elif menu == "📂 Centre de Rapports":
     for entry in history:
         with st.expander(f"📁 Audit {entry['target']} du {entry['date']}"):
             st.write(f"Hôtes: {entry['hosts_found']} | Failles: {entry['vulnerabilities_found']}")
-            if os.path.exists(entry['report_path']):
-                with open(entry['report_path'], "rb") as f:
-                    st.download_button("📥 Télécharger", f, file_name=os.path.basename(entry['report_path']), key=f"dl_{entry['id']}")
-            else:
-                st.error("PDF indisponible.")
+            
+            col_vault1, col_vault2 = st.columns(2)
+            with col_vault1:
+                if os.path.exists(entry['report_path']):
+                    with open(entry['report_path'], "rb") as f:
+                        st.download_button("📥 Télécharger le PDF", f, file_name=os.path.basename(entry['report_path']), key=f"dl_{entry['id']}", type="primary")
+                else:
+                    st.error("PDF indisponible.")
+                    
+            with col_vault2:
+                # Bouton de génération de remédiation SecOps (Ansible / Bash)
+                if entry.get("vulnerabilities_json"):
+                    state_key = f"remediation_{entry['id']}"
+                    if state_key not in st.session_state:
+                        st.session_state[state_key] = None
+                        
+                    if st.button("🛠️ Générer Scripts SecOps (Ansible/Bash)", key=f"btn_rem_{entry['id']}"):
+                        with st.spinner("Génération des playbooks SecOps..."):
+                            try:
+                                vulns_list = json.loads(entry["vulnerabilities_json"])
+                                prompt = (
+                                    "Tu es un ingénieur DevOps expert en sécurité (SecOps).\n"
+                                    "Voici une liste de vulnérabilités découvertes sur la cible :\n"
+                                    f"```json\n{json.dumps(vulns_list, indent=2)}\n```\n\n"
+                                    "Génère :\n"
+                                    "1. Un Playbook Ansible complet, robuste et prêt à l'emploi pour corriger ou mitiger ces failles (ex: désactiver des ports inutiles, durcir des configurations Nginx/Apache, corriger des fichiers de conf, installer des patches).\n"
+                                    "2. Un script Bash autonome de secours (`remediation.sh`) effectuant des vérifications et corrections directes sur la machine.\n\n"
+                                    "Présente le playbook Ansible en premier (dans un bloc de code ```yaml), puis le script Bash (dans un bloc de code ```bash). "
+                                    "Sois extrêmement précis, professionnel et commente tes scripts en français."
+                                )
+                                llm = chat.get_llm()
+                                response = llm.invoke(prompt)
+                                if not isinstance(response, str):
+                                    response = getattr(response, "content", str(response))
+                                st.session_state[state_key] = response
+                            except Exception as e:
+                                st.error(f"Erreur de génération : {e}")
+                                
+            # Affichage du script SecOps si généré
+            if entry.get("vulnerabilities_json") and st.session_state.get(f"remediation_{entry['id']}"):
+                st.markdown("---")
+                st.markdown("### 📋 Scripts de Correction SecOps Générés")
+                st.markdown(st.session_state[f"remediation_{entry['id']}"])
+                st.download_button(
+                    "📥 Télécharger les scripts de remédiation (.txt)",
+                    st.session_state[f"remediation_{entry['id']}"],
+                    file_name=f"sentient_remediation_{entry['id']}.txt",
+                    mime="text/plain",
+                    key=f"dl_rem_txt_{entry['id']}"
+                )
 
 elif menu == "🧠 Base de Connaissances (RAG)":
     st.markdown("<h2>Base de Connaissances (RAG)</h2>", unsafe_allow_html=True)
@@ -1540,4 +1593,46 @@ elif menu == "⚙️ Configuration":
                 custom_remediation_costs=new_remed
             ):
                 st.success("Profil de l'organisation et coûts de base sauvegardés avec succès.")
+                st.rerun()
+
+    st.markdown("---")
+    st.markdown("### 🧠 Configuration d'IA & Connecteurs d'Alertes")
+    st.markdown("Basculez entre le moteur d'IA local Ollama et des API Cloud (OpenAI, Anthropic, Groq) et configurez les notifications webhooks.")
+    
+    with st.form("llm_connector_form"):
+        col_llm1, col_llm2 = st.columns(2)
+        with col_llm1:
+            st.markdown("**🔌 Moteur d'Intelligence Artificielle**")
+            llm_prov_list = ["Ollama", "OpenAI", "Anthropic", "Groq"]
+            saved_prov = rep_cfg.get("llm_provider", "Ollama")
+            prov_idx = llm_prov_list.index(saved_prov) if saved_prov in llm_prov_list else 0
+            llm_prov = st.selectbox("Fournisseur de LLM", llm_prov_list, index=prov_idx)
+            
+            llm_mod = st.text_input("Modèle à utiliser", value=rep_cfg.get("llm_model", "llama3.1:8b"), help="Exemples: gpt-4o, claude-3-5-sonnet-20240620, llama-3.1-70b-versatile, llama3.1:8b")
+            
+            openai_key = st.text_input("Clé d'API OpenAI", value=rep_cfg.get("openai_api_key", ""), type="password")
+            anthropic_key = st.text_input("Clé d'API Anthropic", value=rep_cfg.get("anthropic_api_key", ""), type="password")
+            groq_key = st.text_input("Clé d'API Groq", value=rep_cfg.get("groq_api_key", ""), type="password")
+            
+        with col_llm2:
+            st.markdown("**🔔 Webhooks d'Alertes de Sécurité**")
+            webhook_prov_list = ["Generic", "Slack", "Discord", "Teams"]
+            saved_wh_prov = rep_cfg.get("webhook_provider", "Generic")
+            wh_prov_idx = webhook_prov_list.index(saved_wh_prov) if saved_wh_prov in webhook_prov_list else 0
+            webhook_prov = st.selectbox("Fournisseur de Webhook", webhook_prov_list, index=wh_prov_idx)
+            
+            webhook_url = st.text_input("URL du Webhook", value=rep_cfg.get("webhook_url", ""), help="Entrez l'adresse de votre webhook Slack/Discord/Teams")
+            
+        submitted_llm = st.form_submit_button("Sauvegarder les configurations IA & Alertes", type="primary")
+        if submitted_llm:
+            if report_config.save_report_config(
+                llm_provider=llm_prov,
+                llm_model=llm_mod,
+                openai_api_key=openai_key,
+                anthropic_api_key=anthropic_key,
+                groq_api_key=groq_key,
+                webhook_provider=webhook_prov,
+                webhook_url=webhook_url
+            ):
+                st.success("Configurations d'IA et de Webhooks sauvegardées avec succès.")
                 st.rerun()
