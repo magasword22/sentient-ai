@@ -220,11 +220,11 @@ Ce profil recherche la facilité de déploiement, l'automatisation et l'intégra
 - [x] **Audit Continu des Mises à Jour Logicielles (Patch Management)** : Collecter la liste complète des dépendances et paquets installés (Pip, Npm, Apt, Brew, etc.) et interroger les référentiels de sécurité locaux pour lister les vulnérabilités non corrigées et les mises à jour de sécurité manquantes.
 - [x] **Vérification d'Abus de Privilèges Avancés (Windows Tokens / macOS TCC)** : Auditer les abus de tokens de sécurité spécifiques (ex: SeImpersonatePrivilege, SeDebugPrivilege) sous Windows et les contournements TCC sous macOS pour anticiper les vecteurs de compromission avancés.
 
-### 9. 🚀 Vision & Évolutions Futures ( Roadmap 2027+ )
-- [ ] **Bac à Sable d'Exploitation Sécurisé (Exploit Sandbox)** : Intégrer des conteneurs isolés (Docker ou micro-VMs Firecracker) pour exécuter et valider automatiquement les scripts de détection/PoC sans impact sur l'hôte.
-- [ ] **Cartographie d'Attaque Active Directory & Cloud (IAM)** : Étendre l'audit de privilèges à la structure de domaine AD (Kerberoasting, ADCS) et aux configurations IAM Cloud (AWS, Azure, GCP).
-- [ ] **Fleet Orchestrator (Orchestrateur multi-sondes)** : Gérer une flotte de VPS pour effectuer de la rotation d'IP dynamique, du scan réseau distribué et contourner la détection globale.
-- [ ] **Threat Intelligence (CTI) en Temps Réel** : Connecter des flux de veille (CISA KEV, exploits GitHub) pour auto-alimenter la base RAG locale en continu.
-- [ ] **Console de Remédiation Interactive** : Permettre à l'IA d'appliquer directement les correctifs validés (fermeture de ports, retraits de SUID, patchs) via une console SSH interactive.
-- [ ] **Évasion Défensive Avancée (Bypass EDR/WAF)** : Apprendre à l'IA à analyser la détection défensive et adapter ses signatures réseau pour opérer de manière furtive.
+### 9. 🚀 Vision & Détections Futures ( Roadmap 2026+ - Améliorations Stratégiques )
+- [ ] **Bac à Sable d'Exploitation Sécurisé (Exploit Sandbox)** : Intégrer un environnement d'exécution isolé (ex: conteneurs éphémères Docker ou micro-VMs Firecracker) pour permettre à l'agent *Exploit Validator* de compiler et d'exécuter des scripts de validation passifs de manière autonome sans risque pour l'hôte.
+- [ ] **Cartographie d'Attaque Active Directory & Cloud (IAM)** : Étendre les modules d'audits locaux aux infrastructures de domaines d'entreprises (Active Directory / ADCS / Kerberoasting) et aux politiques d'accès cloud (AWS/Azure/GCP IAM) avec génération de graphes de chemins d'attaque.
+- [ ] **Fleet Orchestrator (Orchestrateur de Sondes Multi-VPS)** : Développer un orchestrateur centralisé gérant une flotte de sondes géographiquement distribuées avec support de rotation dynamique d'IP, planification de tâches coordonnées et techniques d'évasion réseau multi-sondes.
+- [ ] **Threat Intelligence (CTI) en Temps Réel** : Mettre en œuvre un connecteur automatique alimentant la base vectorielle ChromaDB en temps réel avec les vulnérabilités exploitées connues (CISA KEV), les bases CVE récentes et les dépôts GitHub d'exploits.
+- [ ] **Remédiation Interactive Directe (Interactive Patching Console)** : Ajouter une console d'administration permettant de déployer automatiquement les correctifs suggérés (Ansible, SSH commands) directement sur les cibles auditées et relancer une vérification après remédiation.
+- [ ] **Évasion Défensive Avancée adaptative (EDR/NDR Bypass)** : Entraîner les agents IA à ajuster dynamiquement la signature des paquets et la vitesse des requêtes lorsqu'une sonde de détection de sécurité est identifiée sur le réseau cible.
 
