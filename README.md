@@ -128,6 +128,19 @@ sentient update
 
 ---
 
+## 📡 Architecture de Scan Distribuée (Sondes légères)
+
+Sentient AI supporte l'exécution d'audits décentralisés. Vous pouvez déployer une sonde de scan légère (sans le moteur d'IA/Ollama) sur des serveurs distants ou VPS. La sonde exécute Nmap/Nuclei localement et renvoie les résultats bruts en JSON au serveur principal :
+
+1. Déployez et lancez la sonde sur le VPS distant :
+   ```bash
+   python3 sentient_agent.py
+   ```
+2. Dans l'onglet **Configuration** de l'interface d'administration de Sentient AI, enregistrez l'adresse de votre sonde (ex: `http://vps-ip:8502`) et le jeton de sécurité associé.
+3. Lors du lancement d'un audit, sélectionnez votre sonde dans le menu déroulant **Sonde d'exécution du scan**.
+
+---
+
 ## 🛠️ Utilisation Manuelle (Pour développeurs)
 
 Si vous souhaitez faire tourner le code manuellement sans le script d'installation :

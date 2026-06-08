@@ -1007,6 +1007,9 @@ elif menu == "⚡ Lancer un Audit" or st.session_state.get('force_menu') == "⚡
         col_s1, col_s2, col_s3 = st.columns(3)
         with col_s1:
             nmap_mode_sel = st.selectbox("Moteur de Découverte", ["Nmap - Top 1000 Ports (Recommandé)", "Nmap - Fast (Top 100)", "Nmap - Full (65535)"], index=0, help="Choisissez le nombre de ports réseau à analyser avec Nmap.")
+            probes = rep_cfg.get("remote_probes", [])
+            probe_options = ["Local (Serveur principal)"] + [f"{p['name']} ({p['url']})" for p in probes]
+            selected_probe_str = st.selectbox("Sonde d'exécution du scan", probe_options, index=0, help="Sélectionnez si le scan s'exécute localement ou sur une sonde distante.")
             use_demo_mode = st.checkbox("🎭 Mode Démo (Simulation)", value=False, help="Active un scan simulé instantané avec des failles critiques de test pour démonstration.")
         with col_s2:
             nuclei_mode_sel = st.selectbox("Moteur d'Exploitation", ["Nuclei - Full (Automatique)", "Nuclei - Web CVEs", "Nuclei - Passif"], index=0, help="Sélectionnez la profondeur et le ciblage des sondes de vulnérabilité Nuclei.")
@@ -1137,68 +1140,126 @@ elif menu == "⚡ Lancer un Audit" or st.session_state.get('force_menu') == "⚡
                             recon_hosts = run_recon_pipeline(target_input, run_subfinder=use_subfinder, run_gobuster=use_gobuster)
                             status_rec.update(label=f"Reconnaissance terminée : {len(recon_hosts)} sous-domaines/chemins identifiés.", state="complete", expanded=False)
                             
-                    with st.status("Étape 1 : Découverte du périmètre réseau (Nmap)", expanded=True) as status1:
-                        st.write("Exécution des sondes réseau...")
-                        
-                        # Configuration de l'évasion & authentification
-                        evasion_opts = {
-                            "fragment": eva_frag,
-                            "decoy": eva_decoy if eva_decoy else None,
-                            "spoof_mac": eva_mac if eva_mac else None
-                        }
-                        ssh_creds = {
-                            "username": ssh_username if ssh_username else None,
-                            "password": ssh_password if ssh_password else None,
-                            "key_path": ssh_key if ssh_key else None
-                        }
-                        
-                        active_hosts = discover_active_hosts(target_input, nmap_mode, use_agressive, use_vuln_script, evasion_options=evasion_opts, ssh_credentials=ssh_creds)
-                        # Fusionner avec les hôtes découverts par subfinder/gobuster
-                        if recon_hosts:
-                            active_hosts = list(set(active_hosts + recon_hosts))
+                    # Résoudre la sonde sélectionnée
+                    selected_probe = None
+                    if selected_probe_str != "Local (Serveur principal)":
+                        probe_idx = probe_options.index(selected_probe_str) - 1
+                        selected_probe = probes[probe_idx]
+
+                    if selected_probe:
+                        with st.status(f"📡 Scan distant en cours sur {selected_probe['name']}...", expanded=True) as status_remote:
+                            import requests
+                            st.write(f"Connexion à la sonde {selected_probe['url']}...")
                             
-                        if not active_hosts:
-                            status1.update(label="Aucun actif réseau détecté.", state="error", expanded=False)
-                            st.stop()
-                        else:
-                            status1.update(label=f"Périmètre sécurisé : {len(active_hosts)} hôte(s) identifié(s).", state="complete", expanded=False)
-                    progress_bar.progress(25)
-                    
-                    # Mapping Nuclei Tags
-                    selected_tags = []
-                    if "Web CVEs" in nuclei_mode_sel: selected_tags.append("cve")
-                    if "Passif" in nuclei_mode_sel: selected_tags.append("passive")
-                    
-                    if use_cve: selected_tags.append("cve")
-                    if use_default_logins: selected_tags.append("default-login")
-                    if use_exposures: selected_tags.append("exposure")
-                    if use_misconfigs: selected_tags.append("misconfig")
-                    if use_injections: selected_tags.extend(["sqli", "xss", "lfi", "ssrf"])
-                    if use_rce: selected_tags.append("rce")
-                    if use_redirects: selected_tags.extend(["redirect", "takeover"])
-                    if use_ssl: selected_tags.append("ssl")
-                    if use_dns: selected_tags.append("dns")
-                    if use_network_services: selected_tags.extend(["network", "tcp", "ssh", "ftp", "smtp"])
-                    
-                    # Dédupliquer les tags
-                    selected_tags = list(set(selected_tags))
-                    
-                    if not selected_tags and "Full" not in nuclei_mode_sel:
-                        selected_tags = ["cve", "default-login", "exposure", "misconfig"] # Fallback robuste
-                    
-                    # Parsing des en-têtes personnalisés (ex: Cookie: session=abc)
-                    custom_headers = {}
-                    if auth_cookies:
-                        if ":" in auth_cookies:
-                            hk, hv = auth_cookies.split(":", 1)
-                            custom_headers[hk.strip()] = hv.strip()
-                        else:
-                            custom_headers["Cookie"] = auth_cookies.strip()
+                            # Résoudre les tags Nuclei
+                            selected_tags = []
+                            if use_cve: selected_tags.append("cve")
+                            if use_default_logins: selected_tags.append("default-login")
+                            if use_exposures: selected_tags.append("exposure")
+                            if use_misconfigs: selected_tags.append("misconfig")
+                            if use_injections: selected_tags.extend(["sqli", "xss", "lfi", "ssrf"])
+                            if use_rce: selected_tags.append("rce")
+                            if use_redirects: selected_tags.extend(["redirect", "takeover"])
+                            if use_ssl: selected_tags.append("ssl")
+                            if use_dns: selected_tags.append("dns")
+                            if use_network_services: selected_tags.extend(["network", "tcp", "ssh", "ftp", "smtp"])
+                            selected_tags = list(set(selected_tags))
                             
-                    with st.status("Étape 2 : Analyse de vulnérabilités (Nuclei)", expanded=True) as status2:
-                        st.write("Exécution des templates de sécurité (Cette étape est longue)...")
-                        nuclei_results = scan_nuclei(active_hosts, selected_tags if selected_tags else None, headers=custom_headers)
-                        status2.update(label=f"Analyse terminée : {len(nuclei_results)} anomalies relevées.", state="complete", expanded=False)
+                            # Découvrir le mode Nmap
+                            nmap_mode_api = "rapide"
+                            if "Top 1000" in nmap_mode_sel: nmap_mode_api = "standard"
+                            elif "65535" in nmap_mode_sel: nmap_mode_api = "aggressif"
+                            
+                            headers_api = {
+                                "Authorization": f"Bearer {selected_probe['token']}",
+                                "Content-Type": "application/json"
+                            }
+                            payload_api = {
+                                "target": target_input,
+                                "nmap_mode": nmap_mode_api,
+                                "nuclei_tags": selected_tags
+                            }
+                            
+                            try:
+                                response = requests.post(f"{selected_probe['url']}", json=payload_api, headers=headers_api, timeout=1200)
+                                if response.status_code == 200:
+                                    nuclei_results = response.json()
+                                    # Extraire les hôtes
+                                    active_hosts = list(set([r.get("host", target_input) for r in nuclei_results]))
+                                    if not active_hosts:
+                                        active_hosts = [target_input]
+                                    status_remote.update(label=f"Scan distant terminé : {len(nuclei_results)} failles détectées.", state="complete", expanded=False)
+                                else:
+                                    status_remote.update(label=f"Erreur sonde distante (Code {response.status_code}) : {response.text}", state="error", expanded=False)
+                                    st.stop()
+                            except Exception as ex_api:
+                                status_remote.update(label=f"Échec de connexion à la sonde : {ex_api}", state="error", expanded=False)
+                                st.stop()
+                        progress_bar.progress(50)
+                    else:
+                        with st.status("Étape 1 : Découverte du périmètre réseau (Nmap)", expanded=True) as status1:
+                            st.write("Exécution des sondes réseau...")
+                            
+                            # Configuration de l'évasion & authentification
+                            evasion_opts = {
+                                "fragment": eva_frag,
+                                "decoy": eva_decoy if eva_decoy else None,
+                                "spoof_mac": eva_mac if eva_mac else None
+                            }
+                            ssh_creds = {
+                                "username": ssh_username if ssh_username else None,
+                                "password": ssh_password if ssh_password else None,
+                                "key_path": ssh_key if ssh_key else None
+                            }
+                            
+                            active_hosts = discover_active_hosts(target_input, nmap_mode, use_agressive, use_vuln_script, evasion_options=evasion_opts, ssh_credentials=ssh_creds)
+                            # Fusionner avec les hôtes découverts par subfinder/gobuster
+                            if recon_hosts:
+                                active_hosts = list(set(active_hosts + recon_hosts))
+                                
+                            if not active_hosts:
+                                status1.update(label="Aucun actif réseau détecté.", state="error", expanded=False)
+                                st.stop()
+                            else:
+                                status1.update(label=f"Périmètre sécurisé : {len(active_hosts)} hôte(s) identifié(s).", state="complete", expanded=False)
+                        progress_bar.progress(25)
+                        
+                        # Mapping Nuclei Tags
+                        selected_tags = []
+                        if "Web CVEs" in nuclei_mode_sel: selected_tags.append("cve")
+                        if "Passif" in nuclei_mode_sel: selected_tags.append("passive")
+                        
+                        if use_cve: selected_tags.append("cve")
+                        if use_default_logins: selected_tags.append("default-login")
+                        if use_exposures: selected_tags.append("exposure")
+                        if use_misconfigs: selected_tags.append("misconfig")
+                        if use_injections: selected_tags.extend(["sqli", "xss", "lfi", "ssrf"])
+                        if use_rce: selected_tags.append("rce")
+                        if use_redirects: selected_tags.extend(["redirect", "takeover"])
+                        if use_ssl: selected_tags.append("ssl")
+                        if use_dns: selected_tags.append("dns")
+                        if use_network_services: selected_tags.extend(["network", "tcp", "ssh", "ftp", "smtp"])
+                        
+                        # Dédupliquer les tags
+                        selected_tags = list(set(selected_tags))
+                        
+                        if not selected_tags and "Full" not in nuclei_mode_sel:
+                            selected_tags = ["cve", "default-login", "exposure", "misconfig"] # Fallback robuste
+                        
+                        # Parsing des en-têtes personnalisés (ex: Cookie: session=abc)
+                        custom_headers = {}
+                        if auth_cookies:
+                            if ":" in auth_cookies:
+                                hk, hv = auth_cookies.split(":", 1)
+                                custom_headers[hk.strip()] = hv.strip()
+                            else:
+                                custom_headers["Cookie"] = auth_cookies.strip()
+                                
+                        with st.status("Étape 2 : Analyse de vulnérabilités (Nuclei)", expanded=True) as status2:
+                            st.write("Exécution des templates de sécurité (Cette étape est longue)...")
+                            nuclei_results = scan_nuclei(active_hosts, selected_tags if selected_tags else None, headers=custom_headers)
+                            status2.update(label=f"Analyse terminée : {len(nuclei_results)} anomalies relevées.", state="complete", expanded=False)
+                        progress_bar.progress(50)   
                     
                     # Exécuter les outils DevSecOps additionnels
                     if use_sast:
@@ -2332,6 +2393,49 @@ elif menu == "⚙️ Configuration":
             ):
                 st.success("Profil de l'organisation et coûts de base sauvegardés avec succès.")
                 st.rerun()
+
+    st.markdown("---")
+    st.markdown("### 📡 Sondes de Scan Distantes (Architecture Distribuée)")
+    st.markdown("Enregistrez des serveurs distants ou VPS légers exécutant `sentient_agent.py` pour déléguer les scans réseau.")
+    
+    probes = rep_cfg.get("remote_probes", [])
+    
+    col_p1, col_p2 = st.columns(2)
+    with col_p1:
+        st.markdown("**Enregistrer une nouvelle sonde**")
+        with st.form("add_probe_form"):
+            probe_name = st.text_input("Nom de la sonde", placeholder="ex: VPS Paris")
+            probe_url = st.text_input("URL de la sonde", placeholder="ex: http://192.168.1.100:8502")
+            probe_token = st.text_input("Jeton de sécurité (Token)", value="sentient_secure_token_2026", type="password")
+            submitted_probe = st.form_submit_button("Ajouter la sonde", type="primary")
+            if submitted_probe:
+                if not probe_name or not probe_url:
+                    st.error("Veuillez remplir tous les champs.")
+                else:
+                    probes.append({
+                        "name": probe_name,
+                        "url": probe_url,
+                        "token": probe_token
+                    })
+                    if report_config.save_report_config(remote_probes=probes):
+                        st.success(f"Sonde '{probe_name}' ajoutée avec succès.")
+                        st.rerun()
+                        
+    with col_p2:
+        st.markdown("**Sondes enregistrées**")
+        if not probes:
+            st.info("Aucune sonde distante enregistrée pour le moment. Les scans s'exécutent localement.")
+        else:
+            for idx, p in enumerate(probes):
+                col_pr, col_del_pr = st.columns([3, 1])
+                with col_pr:
+                    st.markdown(f"📡 **{p['name']}** — `{p['url']}`")
+                with col_del_pr:
+                    if st.button("🗑️", key=f"del_probe_{idx}", help=f"Supprimer {p['name']}"):
+                        probes.pop(idx)
+                        if report_config.save_report_config(remote_probes=probes):
+                            st.success(f"Sonde supprimée.")
+                            st.rerun()
 
     st.markdown("---")
     st.markdown("### 🧠 Configuration d'IA & Connecteurs d'Alertes")

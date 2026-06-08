@@ -127,7 +127,7 @@ Ces fonctionnalités visent à maximiser l'effet "Wow" lors de démonstrations e
 ### 4. Pour les Développeurs, DevOps & Administrateurs
 Ce profil recherche la facilité de déploiement, l'automatisation et l'intégration dans des architectures existantes.
 
-1. **Architecture Distribuée (Agents Distants)** :
+1. **Architecture Distribuée (Agents Distants)** : [🟢 Implémenté]
    * Permettre à Sentient AI de déployer des conteneurs légers de scan (sondes Nmap/Nuclei uniquement) sur des serveurs distants ou des VPS, puis de renvoyer les fichiers JSON bruts au serveur central pour l'analyse IA.
    * *Bénéfice* : Permet d'auditer des réseaux internes segmentés sans y installer tout le moteur IA.
 2. **Playbooks de Remédiation Automatique** : [🟢 Implémenté]
