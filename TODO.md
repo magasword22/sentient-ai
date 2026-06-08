@@ -213,3 +213,10 @@ Ce profil recherche la facilité de déploiement, l'automatisation et l'intégra
 - [x] **Orchestration Multi-Agents Dédiée (LPE)** : Lancer une équipe CrewAI distincte (Spécialiste PrivEsc + Rapporteur d'Audit) pour évaluer les données système brutes.
 - [x] **Rapports d'Audit Interne Détaillés** : Exporter les rapports système d'audit local en formats Markdown et PDF interactifs via l'interface et le coffre-fort de rapports.
 
+### 8. 🛡️ Détections Extrêmes ( Roadmap 2026 - Détection de Failles Avancées )
+- [ ] **Chasse aux Identifiants & Mots de Passe Résiduels** : Scans récursifs approfondis des dossiers de configuration, de l'historique des commandes, des bases de données de navigateurs et des registres de configuration pour identifier des identifiants en clair et des mots de passe par défaut.
+- [ ] **Audit de Segmentation Réseau Multi-Points** : Comparer la visibilité réseau depuis l'extérieur (scan Nmap standard) avec des sondes internes (scans locaux) pour détecter automatiquement les défauts de cloisonnement ou de segmentation réseau.
+- [ ] **Corrélation Automatique des CVE de Noyau (Kernel LPE)** : Analyse des versions exactes de Noyau et distribution (Linux, macOS, Windows) croisées avec une base d'exploits RAG pour répertorier l'ensemble des vulnérabilités critiques d'élévation de privilèges applicables.
+- [ ] **Audit Continu des Mises à Jour Logicielles (Patch Management)** : Collecter la liste complète des dépendances et paquets installés (Pip, Npm, Apt, Brew, etc.) et interroger les référentiels de sécurité locaux pour lister les vulnérabilités non corrigées et les mises à jour de sécurité manquantes.
+- [ ] **Vérification d'Abus de Privilèges Avancés (Windows Tokens / macOS TCC)** : Auditer les abus de tokens de sécurité spécifiques (ex: SeImpersonatePrivilege, SeDebugPrivilege) sous Windows et les contournements TCC sous macOS pour anticiper les vecteurs de compromission avancés.
+

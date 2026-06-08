@@ -65,7 +65,9 @@ env 2>/dev/null | grep -E -i "key|pass|token|secret|admin|auth" | head -n 20
 echo "=== SHELL_HISTORY ==="
 tail -n 50 ~/.bash_history ~/.zsh_history ~/.bash_profile ~/.zshrc 2>/dev/null | grep -E -i "pass|admin|login|ssh|sudo|key" | head -n 20
 echo "=== SENSITIVE_FILES ==="
-find ~ -name "id_rsa" -o -name "*.key" -o -name ".env" -o -name "config.json" 2>/dev/null | head -n 20
+find ~ -name "id_rsa" -o -name "*.key" -o -name ".env" -o -name "config.json" -o -name "*.db" -o -name "*.bak" -o -name "*.sql" 2>/dev/null | head -n 30
+echo "=== SSH_AWS_PERMS ==="
+ls -la ~/.ssh ~/.aws 2>/dev/null
 """
         shell_cmd = "bash"
 
@@ -78,18 +80,27 @@ Write-Host '=== USER_GROUPS ==='
 whoami /groups
 Write-Host '=== HOTFIXES ==='
 Get-HotFix | Select-Object HotFixID, Description, InstalledOn | Select-Object -First 10 | Format-Table
+Write-Host '=== INSTALLED_SOFTWARE ==='
+Get-ItemProperty HKLM:\\Software\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\* -ErrorAction SilentlyContinue | Select-Object DisplayName, DisplayVersion | Select-Object -First 20 | Format-Table
+Get-ItemProperty HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\* -ErrorAction SilentlyContinue | Select-Object DisplayName, DisplayVersion | Select-Object -First 20 | Format-Table
 Write-Host '=== LISTEN_PORTS ==='
 Get-NetTCPConnection -State Listen | Select-Object LocalAddress, LocalPort, OwningProcess | Select-Object -First 20 | Format-Table
 Write-Host '=== ALWAYS_INSTALL_ELEVATED ==='
 Get-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Installer' -Name 'AlwaysInstallElevated' -ErrorAction SilentlyContinue
 Get-ItemProperty -Path 'HKCU:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Installer' -Name 'AlwaysInstallElevated' -ErrorAction SilentlyContinue
+Write-Host '=== WINDOWS_AUTOLOGON ==='
+Get-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon' -ErrorAction SilentlyContinue | Select-Object DefaultUserName, DefaultPassword, AutoAdminLogon | Format-List
 Write-Host '=== UNQUOTED_SERVICE_PATHS ==='
 Get-WmiObject win32_service | Where-Object { $_.PathName -notlike '\"*' -and $_.PathName -like '* *' -and $_.PathName -notlike '*\\system32\\*' } | Select-Object Name, PathName | Format-Table
 Write-Host '=== SENSITIVE_FILES ==='
 Get-ChildItem -Path C:\\Users\\ -Filter '*.git' -Recurse -ErrorAction SilentlyContinue | Select-Object -First 10
 Get-ChildItem -Path C:\\Users\\ -Filter 'id_rsa' -Recurse -ErrorAction SilentlyContinue | Select-Object -First 10
+Get-ChildItem -Path C:\\Users\\ -Filter '*.env' -Recurse -ErrorAction SilentlyContinue | Select-Object -First 10
+Get-ChildItem -Path C:\\Users\\ -Filter '*.bak' -Recurse -ErrorAction SilentlyContinue | Select-Object -First 10
 Write-Host '=== ENV_VARIABLES ==='
 Get-ChildItem Env: | Where-Object { $_.Name -match 'key|pass|token|secret|admin|auth' } | Select-Object Name, Value | Format-Table
+Write-Host '=== POWERSHELL_HISTORY ==='
+Get-Content -Path \\\"$env:APPDATA\\Microsoft\\Windows\\PowerShell\\PSReadLine\\ConsoleHost_history.txt\\\" -ErrorAction SilentlyContinue | Select-Object -Last 50 | Select-String 'pass|admin|login|key' | Select-Object -First 20
 " """
         shell_cmd = "cmd.exe"
 
@@ -118,13 +129,15 @@ cat /etc/ssh/sshd_config 2>/dev/null | grep -E "PermitRootLogin|PasswordAuthenti
 echo "=== ENV_VARIABLES ==="
 env 2>/dev/null | grep -E -i "key|pass|token|secret|admin|auth" | head -n 20
 echo "=== SHELL_HISTORY ==="
-tail -n 50 ~/.bash_history ~/.zsh_history 2>/dev/null | grep -E -i "pass|admin|login|ssh|sudo|key" | head -n 20
+tail -n 100 ~/.bash_history ~/.zsh_history 2>/dev/null | grep -E -i "pass|admin|login|ssh|sudo|key" | head -n 30
 echo "=== CRON_JOBS ==="
 ls -la /etc/cron* /etc/crontab 2>/dev/null
 echo "=== WRITABLE_DIRECTORIES ==="
 find / -writable -type d 2>/dev/null | grep -E -v "/proc|/sys|/dev|/run|/var|/tmp" | head -n 25
 echo "=== SENSITIVE_FILES ==="
-find / -name "id_rsa" -o -name "id_dsa" -o -name "*.key" -o -name "wp-config.php" -o -name "config.json" -o -name ".env" 2>/dev/null | grep -E -v "/usr/share|/usr/lib" | head -n 25
+find / -name "id_rsa" -o -name "id_dsa" -o -name "*.key" -o -name "wp-config.php" -o -name "config.json" -o -name ".env" -o -name "*.bak" -o -name "*.sql" -o -name "*.db" 2>/dev/null | grep -E -v "/usr/share|/usr/lib" | head -n 30
+echo "=== SSH_AWS_PERMS ==="
+ls -la ~/.ssh ~/.aws 2>/dev/null
 echo "=== KERNEL_EXPLOITS_CHECK ==="
 kernel_version=$(uname -r)
 echo "Noyau détecté : $kernel_version"
