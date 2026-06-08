@@ -220,3 +220,11 @@ Ce profil recherche la facilité de déploiement, l'automatisation et l'intégra
 - [x] **Audit Continu des Mises à Jour Logicielles (Patch Management)** : Collecter la liste complète des dépendances et paquets installés (Pip, Npm, Apt, Brew, etc.) et interroger les référentiels de sécurité locaux pour lister les vulnérabilités non corrigées et les mises à jour de sécurité manquantes.
 - [x] **Vérification d'Abus de Privilèges Avancés (Windows Tokens / macOS TCC)** : Auditer les abus de tokens de sécurité spécifiques (ex: SeImpersonatePrivilege, SeDebugPrivilege) sous Windows et les contournements TCC sous macOS pour anticiper les vecteurs de compromission avancés.
 
+### 9. 🚀 Vision & Évolutions Futures ( Roadmap 2027+ )
+- [ ] **Bac à Sable d'Exploitation Sécurisé (Exploit Sandbox)** : Intégrer des conteneurs isolés (Docker ou micro-VMs Firecracker) pour exécuter et valider automatiquement les scripts de détection/PoC sans impact sur l'hôte.
+- [ ] **Cartographie d'Attaque Active Directory & Cloud (IAM)** : Étendre l'audit de privilèges à la structure de domaine AD (Kerberoasting, ADCS) et aux configurations IAM Cloud (AWS, Azure, GCP).
+- [ ] **Fleet Orchestrator (Orchestrateur multi-sondes)** : Gérer une flotte de VPS pour effectuer de la rotation d'IP dynamique, du scan réseau distribué et contourner la détection globale.
+- [ ] **Threat Intelligence (CTI) en Temps Réel** : Connecter des flux de veille (CISA KEV, exploits GitHub) pour auto-alimenter la base RAG locale en continu.
+- [ ] **Console de Remédiation Interactive** : Permettre à l'IA d'appliquer directement les correctifs validés (fermeture de ports, retraits de SUID, patchs) via une console SSH interactive.
+- [ ] **Évasion Défensive Avancée (Bypass EDR/WAF)** : Apprendre à l'IA à analyser la détection défensive et adapter ses signatures réseau pour opérer de manière furtive.
+
