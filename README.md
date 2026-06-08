@@ -4,6 +4,8 @@
 
 **Sentient AI** est une plateforme d'audit de sécurité automatisée (PTaaS - Penetration Testing as a Service), propulsée par une architecture d'Agents d'Intelligence Artificielle (CrewAI) fonctionnant à **100% en local** (Ollama).
 
+📖 Consultez la [Documentation Complète](DOCUMENTATION.md) pour obtenir des guides détaillés, des exemples de commandes et des instructions d'intégration.
+
 Elle combine la puissance de découverte réseau de **Nmap** et de **Nuclei** avec les capacités de raisonnement de modèles LLM de dernière génération (ex: Llama 3) pour générer des rapports de pentest exécutifs et sans faux positifs.
 
 ![Sentient AI](https://img.shields.io/badge/Status-Production%20Ready-success)
