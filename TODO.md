@@ -221,10 +221,36 @@ Ce profil recherche la facilité de déploiement, l'automatisation et l'intégra
 - [x] **Vérification d'Abus de Privilèges Avancés (Windows Tokens / macOS TCC)** : Auditer les abus de tokens de sécurité spécifiques (ex: SeImpersonatePrivilege, SeDebugPrivilege) sous Windows et les contournements TCC sous macOS pour anticiper les vecteurs de compromission avancés.
 
 ### 9. 🚀 Vision & Détections Futures ( Roadmap 2026+ - Améliorations Stratégiques )
-- [ ] **Bac à Sable d'Exploitation Sécurisé (Exploit Sandbox)** : Intégrer un environnement d'exécution isolé (ex: conteneurs éphémères Docker ou micro-VMs Firecracker) pour permettre à l'agent *Exploit Validator* de compiler et d'exécuter des scripts de validation passifs de manière autonome sans risque pour l'hôte.
-- [ ] **Cartographie d'Attaque Active Directory & Cloud (IAM)** : Étendre les modules d'audits locaux aux infrastructures de domaines d'entreprises (Active Directory / ADCS / Kerberoasting) et aux politiques d'accès cloud (AWS/Azure/GCP IAM) avec génération de graphes de chemins d'attaque.
-- [ ] **Fleet Orchestrator (Orchestrateur de Sondes Multi-VPS)** : Développer un orchestrateur centralisé gérant une flotte de sondes géographiquement distribuées avec support de rotation dynamique d'IP, planification de tâches coordonnées et techniques d'évasion réseau multi-sondes.
-- [ ] **Threat Intelligence (CTI) en Temps Réel** : Mettre en œuvre un connecteur automatique alimentant la base vectorielle ChromaDB en temps réel avec les vulnérabilités exploitées connues (CISA KEV), les bases CVE récentes et les dépôts GitHub d'exploits.
-- [ ] **Remédiation Interactive Directe (Interactive Patching Console)** : Ajouter une console d'administration permettant de déployer automatiquement les correctifs suggérés (Ansible, SSH commands) directement sur les cibles auditées et relancer une vérification après remédiation.
-- [ ] **Évasion Défensive Avancée adaptative (EDR/NDR Bypass)** : Entraîner les agents IA à ajuster dynamiquement la signature des paquets et la vitesse des requêtes lorsqu'une sonde de détection de sécurité est identifiée sur le réseau cible.
+
+- [ ] **Bac à Sable d'Exploitation Sécurisé (Exploit Sandbox)** :
+  * *Objectif technique* : Concevoir un orchestrateur de conteneurs légers (Docker API) ou de micro-machines virtuelles (via *Firecracker* ou *gVisor*) s'exécutant sur le serveur principal.
+  * *Fonctionnement* : L'agent *Exploit Validator* écrit ou télécharge des scripts PoC. Au lieu de les exécuter directement en ligne ou sur l'hôte, il les instancie dans un environnement hermétique sans accès réseau externe (sauf vers la cible d'audit spécifique). Le sandbox capture les entrées/sorties, détecte si le script réussit son test passif (ex: lecture de bannière, réponse HTTP 200 spécifique) et détruit immédiatement l'environnement.
+  * *Plus-value* : Zéro risque de compromission ou de fuite de contrôle sur la machine de l'auditeur. Élimine les faux positifs en simulant de manière sécurisée l'attaque.
+
+- [ ] **Cartographie d'Attaque Active Directory & Cloud (IAM)** :
+  * *Objectif technique* : Intégrer des agents IA spécialisés en infrastructures d'annuaires Windows et en API de fournisseurs de Cloud.
+  * *Fonctionnement* :
+    - *Active Directory (AD)* : Exécution de collecteurs non destructifs (similaires à SharpHound ou LDAP queries locales) collectant les relations AD, les certificats (ADCS), les comptes d'ordinateurs obsolètes et les configurations de délégation (Unconstrained Delegation). L'analyste IA corrèle ces informations et dresse un graphe de chemins d'attaque menant à la compromission Domain Admin (ex: Kerberoasting -> AS-REP Roasting -> Golden Ticket).
+    - *Cloud IAM* : Interroger les APIs AWS/GCP/Azure pour lister les clés d'accès inactives, les politiques d'assume-role trop permissives et générer un audit complet de la posture de sécurité Cloud (CSPM).
+  * *Plus-value* : Passage d'un audit de machines isolées à un audit global d'infrastructure d'entreprise.
+
+- [ ] **Fleet Orchestrator (Orchestrateur de Sondes Multi-VPS)** :
+  * *Objectif technique* : Implémenter un serveur central de contrôle (C2-like pour les auditeurs) pilotant des instances de [sentient_agent.py](file:///home/magsword22/sentient/sentient-ai/sentient_agent.py).
+  * *Fonctionnement* : Utiliser des connexions WebSocket sécurisées gérées par TLS mutuel (mTLS). Le serveur central répartit dynamiquement les scans réseau. Par exemple, pour scanner une plage d'adresses IP large, le serveur affecte les hôtes à différentes sondes de manière aléatoire. Il gère également l'utilisation de proxies (Tor, SSH tunnels) ou de serveurs VPS éphémères (déployés automatiquement via Terraform/Ansible) pour faire varier l'adresse IP de scan (IP Rotation) face à un blocage réseau.
+  * *Plus-value* : Scalabilité horizontale extrême des scans réseau et protection de l'identité de l'auditeur.
+
+- [ ] **Threat Intelligence (CTI) en Temps Réel** :
+  * *Objectif technique* : Développer un service daemon d'arrière-plan interrogeant de multiples sources de Threat Intelligence publiques et privées.
+  * *Fonctionnement* : Le service se connecte périodiquement au catalogue KEV de la CISA, aux dépôts d'exploits open source (Exploit-DB, GitHub Zero-Day Trackers, PacketStorm) et aux bases de données CVE de l'ANSSI et du NVD. Chaque nouvelle vulnérabilité critique découverte est scrapée, structurée en Markdown, puis intégrée dans le référentiel vectoriel local ChromaDB via `rag.py`. L'IA peut ainsi analyser un système contre des menaces datant de seulement quelques heures.
+  * *Plus-value* : Posture de sécurité proactive et mise à jour instantanée sans intervention de l'administrateur.
+
+- [ ] **Remédiation Interactive Directe (Interactive Patching Console)** :
+  * *Objectif technique* : Créer une console d'application de correctifs sécurisée et réversible (Rollback) directement reliée aux machines auditées.
+  * *Fonctionnement* : L'agent *Blue Team Defender* rédige le correctif (playbook Ansible, script Bash, commande PowerShell de configuration de registre). L'administrateur de Sentient AI clique sur "Déployer le correctif". Sentient AI se connecte en SSH (via les credentials déjà établis pour l'audit LPE) et exécute la remédiation dans un mode de validation. Une fois appliqué, un test de non-régression et un micro-scan sont lancés. En cas d'erreur de service ou de port inaccessible, un mécanisme de sauvegarde précédent restaure la configuration d'origine (Rollback).
+  * *Plus-value* : Automatisation du cycle complet Audit -> Détection -> Remédiation -> Validation.
+
+- [ ] **Évasion Défensive Avancée adaptative (EDR/NDR Bypass)** :
+  * *Objectif technique* : Développer un agent CrewAI spécialisé dans le contournement adaptatif des mécanismes de sécurité actifs (pare-feu de nouvelle génération NGFW, EDR, NDR).
+  * *Fonctionnement* : Si au cours du scan, une sonde commence à renvoyer des paquets perdus (packet drops) ou des erreurs de connexion, l'agent IA déduit la présence d'un outil de filtrage actif. Il demande à la sonde de scan (ex: Nuclei/Nmap) de modifier dynamiquement son comportement : ralentissement des requêtes (passer de 150 req/sec à 1 req/sec), usurpation d'identifiants utilisateurs légitimes dans les en-têtes (User-Agent), ou modification des signatures de payloads réseau.
+  * *Plus-value* : Permet d'évaluer la robustesse réelle des systèmes de détection comportementaux (Blue Team) des clients.
 
