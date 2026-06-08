@@ -206,3 +206,10 @@ Ce profil recherche la facilité de déploiement, l'automatisation et l'intégra
 - [x] **Optimisation matérielle automatique** : Profiler le système (RAM/VRAM/GPU) pour auto-configurer Ollama et les taux de threads de Nuclei.
 - [x] **Templates Terraform & Ansible (IaC)** : Développer des scripts pour instancier des instances d'audit dédiées dans le Cloud en quelques clics.
 - [x] **Chart Helm Kubernetes** : Concevoir les fichiers de configuration Kubernetes Helm pour le déploiement en entreprise.
+
+### 7. 🖥️ Audit Système & Élévation de Privilèges (LPE / PrivEsc)
+- [x] **Script de Collecte Interne Distant** : Exécuter par SSH un script de reconnaissance des vulnérabilités locales (SUID/SGID, version du Kernel, règles Sudo sans mot de passe).
+- [x] **Collecte Avancée de Vecteurs d'Attaque** : Auditer les Linux Capabilities, les ports locaux à l'écoute, l'accès au socket Docker, les variables d'environnement exposant des identifiants et l'historique shell.
+- [x] **Orchestration Multi-Agents Dédiée (LPE)** : Lancer une équipe CrewAI distincte (Spécialiste PrivEsc + Rapporteur d'Audit) pour évaluer les données système brutes.
+- [x] **Rapports d'Audit Interne Détaillés** : Exporter les rapports système d'audit local en formats Markdown et PDF interactifs via l'interface et le coffre-fort de rapports.
+

@@ -739,3 +739,56 @@ Les calculs financiers sont personnalisés selon le profil spécifique de votre 
         return result
     return getattr(result, 'raw', str(result))
 
+def run_host_audit_crew(host, structured_output, language="Français"):
+    """
+    Utilise CrewAI pour analyser les résultats de l'audit local (SUID, Sudo, Kernel, etc.)
+    et rédiger un rapport d'audit interne avec les risques d'élévation de privilèges.
+    """
+    import report_config
+    rep_cfg = report_config.load_report_config()
+    active_llm = get_configured_llm(rep_cfg)
+    
+    analyst = Agent(
+        role="Spécialiste de l'Élévation de Privilèges",
+        goal="Analyser les configurations système locales pour identifier les failles d'élévation de privilèges (LPE).",
+        backstory="Tu es un chercheur en sécurité expert des systèmes d'exploitation. Tu analyses les SUID, règles Sudo, tâches Cron et versions de noyaux pour trouver des vecteurs de compromission locale.",
+        verbose=True,
+        allow_delegation=False,
+        llm=active_llm
+    )
+    
+    writer = Agent(
+        role="Rapporteur d'Audit Interne",
+        goal="Rédiger un rapport d'audit système clair et exploitable contenant les vulnérabilités trouvées et les recommandations de durcissement.",
+        backstory="Tu es un auditeur de sécurité système. Ton rôle est de documenter précisément les failles trouvées par ton collègue et de fournir les commandes d'administration pour les corriger.",
+        verbose=True,
+        allow_delegation=False,
+        llm=active_llm
+    )
+    
+    task_analysis = Task(
+        description=f"Voici les données d'audit système brutes obtenues sur {host} :\n\n{structured_output}\n\nExamine attentivement les SUID/SGID, fichiers sensibles, configurations sudo, noyau, capabilities Linux, ports en écoute locale, accès au socket Docker, variables d'environnement exposant des secrets et historique des commandes. Identifie tous les risques et vecteurs réels d'élévation de privilèges (LPE) ou de fuite d'informations. Explique précisément chaque vecteur potentiel.",
+        expected_output="Une liste structurée des vulnérabilités locales et des vecteurs d'élévation de privilèges identifiés avec le composant vulnérable.",
+        agent=analyst
+    )
+    
+    task_report = Task(
+        description=f"Rédige un rapport complet en Markdown rédigé intégralement en {language}. Structure-le avec : # Rapport d'Audit Système local - {host}, ## Résumé Exécutif, ## Vecteurs d'Élévation de Privilèges Identifiés (SUID/Sudo/Kernel/Capabilities/Docker), ## Analyse de la Surface d'Exposition (Fichiers, Dossiers, Ports, Secrets), ## Recommandations de Durcissement (CIS/ANSSI/Docker/Secrets).",
+        expected_output="Le rapport d'audit système complet en Markdown.",
+        agent=writer
+    )
+    
+    crew = Crew(
+        agents=[analyst, writer],
+        tasks=[task_analysis, task_report],
+        process=Process.sequential,
+        verbose=True
+    )
+    
+    result = crew.kickoff()
+    if isinstance(result, str):
+        return result
+    return getattr(result, 'raw', str(result))
+
+
+

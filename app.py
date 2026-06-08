@@ -677,6 +677,7 @@ with st.sidebar:
         options_list = [
             "📊 Tableau de Bord", 
             "📂 Centre de Rapports", 
+            "🖥️ Audit Système PrivEsc",
             "💬 Assistant Virtuel",
             "🧠 Base de Connaissances (RAG)"
         ]
@@ -684,6 +685,7 @@ with st.sidebar:
         options_list = [
             "📊 Tableau de Bord", 
             "⚡ Lancer un Audit", 
+            "🖥️ Audit Système PrivEsc",
             "💰 Analyse de Risque ROI",
             "📅 Planification de Scans",
             "📂 Centre de Rapports", 
@@ -762,7 +764,7 @@ with st.sidebar:
 # -----------------------------------------------------------------------------
 # Logique de Navigation & Sécurité (RBAC)
 # -----------------------------------------------------------------------------
-if st.session_state.role == "client" and menu not in ["📊 Tableau de Bord", "📂 Centre de Rapports", "💬 Assistant Virtuel", "🧠 Base de Connaissances (RAG)"]:
+if st.session_state.role == "client" and menu not in ["📊 Tableau de Bord", "📂 Centre de Rapports", "🖥️ Audit Système PrivEsc", "💬 Assistant Virtuel", "🧠 Base de Connaissances (RAG)"]:
     st.warning("⛔ Accès refusé : Votre profil (Client) ne vous permet pas d'accéder à cette fonctionnalité.")
     st.stop()
 
@@ -1357,6 +1359,101 @@ elif menu == "⚡ Lancer un Audit" or st.session_state.get('force_menu') == "⚡
                             st.success(msg)
                         else:
                             st.error(msg)
+
+elif menu == "🖥️ Audit Système PrivEsc":
+    st.markdown("<h2>🛡️ Audit de Sécurité Interne & PrivEsc</h2>", unsafe_allow_html=True)
+    st.info("Réalisez des audits locaux de sécurité par SSH pour cartographier les risques d'élévation de privilèges (SUID, Sudo, Kernel, Cron).")
+
+    if st.session_state.role == "client":
+        st.warning("🔒 Mode lecture seule : Les clients ne peuvent pas lancer de nouveaux scans, mais peuvent consulter l'historique dans le Centre de Rapports.")
+    else:
+        with st.form("sys_audit_form"):
+            col_sa1, col_sa2 = st.columns(2)
+            with col_sa1:
+                target_ip = st.text_input("🎯 Adresse IP ou nom d'hôte cible", value="127.0.0.1", placeholder="ex: 192.168.1.10")
+                ssh_user = st.text_input("👤 Nom d'utilisateur SSH", value="root", placeholder="ex: admin, root")
+            with col_sa2:
+                ssh_port = st.number_input("🔌 Port SSH", min_value=1, max_value=65535, value=22)
+                ssh_pass = st.text_input("🔑 Mot de passe SSH", type="password", placeholder="Laisser vide si clé privée utilisée")
+            
+            uploaded_key = st.file_uploader("🗝️ Clé privée SSH (Optionnelle)", type=["pem", "key", "txt"])
+            lang_sel = st.selectbox("Langue de rédaction du rapport", ["Français", "Anglais", "Espagnol", "Allemand"])
+            
+            submit_sys = st.form_submit_button("🚀 Lancer l'Audit Interne", type="primary")
+            
+            if submit_sys:
+                if not target_ip or not ssh_user:
+                    st.error("L'hôte et l'utilisateur SSH sont requis.")
+                else:
+                    # Traiter la clé privée si fournie
+                    key_path_temp = None
+                    if uploaded_key is not None:
+                        os.makedirs("scratch", exist_ok=True)
+                        key_path_temp = f"scratch/temp_key_{random.randint(1000, 9999)}"
+                        with open(key_path_temp, "wb") as f_k:
+                            f_k.write(uploaded_key.getbuffer())
+                    
+                    with st.status("Étape 1 : Connexion SSH et collecte d'informations système", expanded=True) as status_sys1:
+                        import host_auditor
+                        st.write(f"Connexion à {ssh_user}@{target_ip}:{ssh_port}...")
+                        res_audit = host_auditor.run_remote_privesc_audit(
+                            target_ip, 
+                            ssh_user, 
+                            password=ssh_pass if ssh_pass else None,
+                            key_path=key_path_temp,
+                            port=ssh_port
+                        )
+                        if not res_audit["success"]:
+                            status_sys1.update(label=f"Erreur de collecte : {res_audit['error']}", state="error", expanded=False)
+                            if key_path_temp and os.path.exists(key_path_temp): os.remove(key_path_temp)
+                            st.stop()
+                        else:
+                            status_sys1.update(label="Collecte locale terminée avec succès.", state="complete", expanded=False)
+                            
+                    with st.status("Étape 2 : Analyse agentique de la configuration locale (PrivEsc)", expanded=True) as status_sys2:
+                        import agents
+                        st.write("Analyse des SUID, Cron, Kernel et Sudo par les agents CrewAI...")
+                        report_md = agents.run_host_audit_crew(target_ip, res_audit["structured_output"], language=lang_sel)
+                        status_sys2.update(label="Rapport d'audit rédigé par l'IA.", state="complete", expanded=False)
+                        
+                    with st.status("Étape 3 : Génération des livrables (PDF & MD)", expanded=True) as status_sys3:
+                        from scanner import export_to_pdf
+                        os.makedirs("reports", exist_ok=True)
+                        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                        pdf_path = f"reports/host_audit_{timestamp}.pdf"
+                        md_path = f"reports/host_audit_{timestamp}.md"
+                        
+                        with open(md_path, "w", encoding="utf-8") as f_md:
+                            f_md.write(report_md)
+                            
+                        export_to_pdf(report_md, pdf_path)
+                        status_sys3.update(label="Fichiers PDF et Markdown créés.", state="complete", expanded=False)
+                    
+                    # Nettoyer clé privée
+                    if key_path_temp and os.path.exists(key_path_temp):
+                        os.remove(key_path_temp)
+                        
+                    # Ajouter à l'historique de la base de données
+                    from database import add_scan
+                    add_scan(
+                        f"[Host Audit] {ssh_user}@{target_ip}",
+                        1, # 1 host
+                        5, # Vulns count d'affichage
+                        pdf_path,
+                        vulnerabilities_json=json.dumps({"success": True, "type": "host_privesc"})
+                    )
+                    
+                    st.success("🎉 Audit interne complété avec succès !")
+                    
+                    col_dl1, col_dl2 = st.columns(2)
+                    with col_dl1:
+                        with open(pdf_path, "rb") as f_pdf:
+                            st.download_button("📥 Télécharger le Rapport d'Audit Système (PDF)", f_pdf, file_name=f"Host_Audit_{timestamp}.pdf", mime="application/pdf", type="primary")
+                    with col_dl2:
+                        st.markdown(f"Rapport sauvegardé dans : `{pdf_path}`")
+                    
+                    st.markdown("### Aperçu du Rapport d'Audit")
+                    st.markdown(report_md)
 
 # ==========================================
 # 💰 ANALYSE DE RISQUE ROI
