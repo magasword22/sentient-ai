@@ -745,13 +745,21 @@ def run_host_audit_crew(host, structured_output, language="Français", target_os
     et rédiger un rapport d'audit interne avec les risques d'élévation de privilèges.
     """
     import report_config
+    import rag
     rep_cfg = report_config.load_report_config()
     active_llm = get_configured_llm(rep_cfg)
     
+    # Récupérer les référentiels de sécurité correspondants (ANSSI, CIS, CVE Noyau)
+    rag_context = ""
+    try:
+        rag_context = rag.query_rag(f"kernel exploit LPE {target_os} AlwaysInstallElevated PwnKit DirtyPipe CLFS credential patch", n_results=4)
+    except Exception as e:
+        print(f"[!] Erreur de requête RAG pour l'audit local : {e}")
+        
     analyst = Agent(
         role="Spécialiste de l'Élévation de Privilèges",
         goal="Analyser les configurations système locales pour identifier les failles d'élévation de privilèges (LPE).",
-        backstory="Tu es un chercheur en sécurité expert des systèmes d'exploitation. Tu analyses les configurations, règles de privilèges, tâches automatiques et versions de noyaux pour trouver des vecteurs de compromission locale.",
+        backstory="Tu es un chercheur en sécurité expert des systèmes d'exploitation. Tu analyses les configurations, les correctifs système, les variables d'environnement, les tâches automatiques et les versions de noyaux pour trouver des vecteurs de compromission locale.",
         verbose=True,
         allow_delegation=False,
         llm=active_llm
@@ -769,43 +777,72 @@ def run_host_audit_crew(host, structured_output, language="Français", target_os
     if target_os and target_os.lower() == "windows":
         analysis_desc = (
             f"Voici les données d'audit système brutes obtenues sur {host} ({target_os}) :\n\n{structured_output}\n\n"
-            "Examine attentivement les correctifs de sécurité (Hotfixes) manquants, les privilèges de groupes d'utilisateurs, "
-            "les ports locaux en écoute, les clés de registre AlwaysInstallElevated, les chemins de services non encadrés (Unquoted Service Paths), "
-            "les variables d'environnement exposant des secrets, et les fichiers sensibles contenant des clés/tokens. "
+            f"Aide-toi également des référentiels RAG et guides de sécurité suivants :\n{rag_context}\n\n"
+            "Examine attentivement :\n"
+            "1. Les correctifs de sécurité (Hotfixes) et applications installées pour identifier les vulnérabilités non corrigées (Patch Management).\n"
+            "2. Les privilèges de groupes d'utilisateurs et abus de jetons de privilèges (SeImpersonatePrivilege, AlwaysInstallElevated).\n"
+            "3. Les chemins de services non encadrés (Unquoted Service Paths).\n"
+            "4. Les secrets, identifiants et mots de passe stockés en clair (DefaultPassword dans Winlogon, variables d'environnement, fichiers de config, PowerShell history).\n"
+            "5. Les défauts de segmentation réseau (en comparant les ports locaux à l'écoute aux filtrages potentiels).\n\n"
             "Identifie tous les risques et vecteurs réels d'élévation de privilèges (LPE) ou de fuite d'informations spécifiques à Windows. "
             "Explique précisément chaque vecteur potentiel."
         )
         report_desc = (
             f"Rédige un rapport complet en Markdown rédigé intégralement en {language}. Structure-le avec : "
-            f"# Rapport d'Audit Système local - {host} ({target_os}), ## Résumé Exécutif, ## Vecteurs d'Élévation de Privilèges Identifiés (AlwaysInstallElevated/Unquoted Services/Hotfixes/Groups), "
-            "## Analyse de la Surface d'Exposition (Fichiers, Dossiers, Ports, Secrets), ## Recommandations de Durcissement (CIS/Microsoft/Active Directory/Secrets)."
+            f"# Rapport d'Audit Système local - {host} ({target_os})\n\n"
+            "## Résumé Exécutif\n\n"
+            "## Vecteurs d'Élévation de Privilèges (AlwaysInstallElevated/Unquoted Services/Hotfixes/Privileged Tokens)\n\n"
+            "## Chasse aux Secrets & Mots de Passe Résiduels\n\n"
+            "## Audit des Mises à Jour & Mises à Niveau (Patch Management)\n\n"
+            "## Cloisonnement & Segmentation Réseau (Ports locaux vs externes)\n\n"
+            "## Recommandations de Durcissement (CIS/Microsoft/Active Directory/Secrets)."
         )
     elif target_os and target_os.lower() == "macos":
         analysis_desc = (
             f"Voici les données d'audit système brutes obtenues sur {host} ({target_os}) :\n\n{structured_output}\n\n"
-            "Examine attentivement l'état du SIP (System Integrity Protection), les groupes d'utilisateurs, "
-            "les permissions Sudo, les binaires SUID/SGID, les ports locaux en écoute, les applications Brew installées, "
-            "les variables d'environnement exposant des secrets, l'historique des shells, et les fichiers sensibles (clés SSH, etc.). "
+            f"Aide-toi également des référentiels RAG et guides de sécurité suivants :\n{rag_context}\n\n"
+            "Examine attentivement :\n"
+            "1. L'état du SIP (System Integrity Protection) et les droits d'accès TCC.\n"
+            "2. Les permissions Sudo et binaires SUID/SGID.\n"
+            "3. Les versions des logiciels et outils installés via Homebrew (recherche de versions obsolètes).\n"
+            "4. Les secrets et identifiants stockés (fichiers sensibles de clés, variables d'environnement, historique shell).\n"
+            "5. La segmentation réseau via les ports à l'écoute et l'analyse de visibilité.\n\n"
             "Identifie tous les risques et vecteurs réels d'élévation de privilèges (LPE) ou de fuite d'informations spécifiques à macOS. "
             "Explique précisément chaque vecteur potentiel."
         )
         report_desc = (
             f"Rédige un rapport complet en Markdown rédigé intégralement en {language}. Structure-le avec : "
-            f"# Rapport d'Audit Système local - {host} ({target_os}), ## Résumé Exécutif, ## Vecteurs d'Élévation de Privilèges Identifiés (SUID/Sudo/SIP/Brew), "
-            "## Analyse de la Surface d'Exposition (Fichiers, Dossiers, Ports, Secrets), ## Recommandations de Durcissement (CIS/Apple/Brew/Secrets)."
+            f"# Rapport d'Audit Système local - {host} ({target_os})\n\n"
+            "## Résumé Exécutif\n\n"
+            "## Vecteurs d'Élévation de Privilèges (SUID/Sudo/SIP/Permissions)\n\n"
+            "## Chasse aux Secrets & Mots de Passe Résiduels\n\n"
+            "## Audit des Mises à Jour & Packages Obsolètes (Brew)\n\n"
+            "## Cloisonnement & Segmentation Réseau (Ports locaux vs externes)\n\n"
+            "## Recommandations de Durcissement (CIS/Apple/Brew/Secrets)."
         )
     else:
         analysis_desc = (
             f"Voici les données d'audit système brutes obtenues sur {host} ({target_os}) :\n\n{structured_output}\n\n"
-            "Examine attentivement les SUID/SGID, fichiers sensibles, configurations sudo, noyau, capabilities Linux, "
-            "ports en écoute locale, accès au socket Docker, variables d'environnement exposant des secrets et historique des commandes. "
+            f"Aide-toi également des référentiels RAG et guides de sécurité suivants :\n{rag_context}\n\n"
+            "Examine attentivement :\n"
+            "1. Les SUID/SGID et les capabilities Linux.\n"
+            "2. La version du noyau Linux pour identifier d'éventuels exploits de noyau applicables (PwnKit, Dirty Pipe, Dirty COW, etc.).\n"
+            "3. Les permissions Sudo sans mot de passe.\n"
+            "4. Les paquets système installés obsolètes (dpkg, rpm, apk).\n"
+            "5. Les secrets stockés (fichiers .env, clés SSH, configurations, historique bash/zsh).\n"
+            "6. La segmentation réseau (visibilité des ports d'écoute locale, socket Docker).\n\n"
             "Identifie tous les risques et vecteurs réels d'élévation de privilèges (LPE) ou de fuite d'informations spécifiques à Linux. "
             "Explique précisément chaque vecteur potentiel."
         )
         report_desc = (
             f"Rédige un rapport complet en Markdown rédigé intégralement en {language}. Structure-le avec : "
-            f"# Rapport d'Audit Système local - {host} ({target_os}), ## Résumé Exécutif, ## Vecteurs d'Élévation de Privilèges Identifiés (SUID/Sudo/Kernel/Capabilities/Docker), "
-            "## Analyse de la Surface d'Exposition (Fichiers, Dossiers, Ports, Secrets), ## Recommandations de Durcissement (CIS/ANSSI/Docker/Secrets)."
+            f"# Rapport d'Audit Système local - {host} ({target_os})\n\n"
+            "## Résumé Exécutif\n\n"
+            "## Vecteurs d'Élévation de Privilèges (SUID/Sudo/Kernel CVE/Capabilities/Docker)\n\n"
+            "## Chasse aux Secrets & Mots de Passe Résiduels\n\n"
+            "## Audit des Mises à Jour & Packages Obsolètes (Apt/Rpm/Apk)\n\n"
+            "## Cloisonnement & Segmentation Réseau (Ports locaux vs externes)\n\n"
+            "## Recommandations de Durcissement (CIS/ANSSI/Docker/Secrets)."
         )
         
     task_analysis = Task(
