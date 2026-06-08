@@ -419,247 +419,165 @@ def get_system_telemetry():
 # Style CSS Premium & Thèmes Dynamiques
 # -----------------------------------------------------------------------------
 def inject_custom_theme():
+    """Injecte le design system et le thème sélectionné."""
     import report_config
     cfg = report_config.load_report_config()
     theme = cfg.get("theme", "Slate/Zinc")
-    
-    common_css = """
-    #MainMenu {visibility: hidden;}
-    header {visibility: hidden;}
-    footer {visibility: hidden;}
-    
-    .badge {
-        display: inline-block;
-        padding: 0.25rem 0.5rem;
-        border-radius: 9999px;
-        font-size: 0.75rem;
-        font-weight: 600;
-        margin-right: 4px;
+
+    # Map theme names to data-theme attribute values
+    theme_map = {
+        "Slate/Zinc": "dark",
+        "Light/Clean": "light",
+        "Matrix/Hacker": "matrix",
     }
-    .badge-crit { background-color: rgba(220, 38, 38, 0.2); color: #ef4444; border: 1px solid rgba(220, 38, 38, 0.3); }
-    .badge-high { background-color: rgba(234, 88, 12, 0.2); color: #f97316; border: 1px solid rgba(234, 88, 12, 0.3); }
-    .badge-med { background-color: rgba(202, 138, 4, 0.2); color: #eab308; border: 1px solid rgba(202, 138, 4, 0.3); }
-    .badge-low { background-color: rgba(37, 99, 235, 0.2); color: #3b82f6; border: 1px solid rgba(37, 99, 235, 0.3); }
-    .badge-success { background-color: rgba(22, 163, 74, 0.2); color: #22c55e; border: 1px solid rgba(22, 163, 74, 0.3); }
-    
-    .dot {
-        height: 8px;
-        width: 8px;
-        background-color: #22c55e;
-        border-radius: 50%;
-        display: inline-block;
-        margin-right: 6px;
-    }
-    .dot-warning { background-color: #eab308; }
-    """
+    theme_attr = theme_map.get(theme, "dark")
 
-    if theme == "Matrix/Hacker":
-        st.markdown(f"""
-        <style>
-            {common_css}
-            
-            .block-container {{
-                padding-top: 2rem !important;
-                max-width: 95% !important;
-                background-color: #000000 !important;
-            }}
+    # Load the full CSS design system
+    css_path = os.path.join(os.path.dirname(__file__), "style.css")
+    css_content = ""
+    if os.path.exists(css_path):
+        with open(css_path, "r") as f:
+            css_content = f.read()
 
-            .stApp {{
-                background-color: #000000 !important;
-                color: #00ff00 !important;
-                font-family: 'Courier New', Courier, monospace !important;
-            }}
-
-            h1, h2, h3, h4, h5, h6, p, span, label, div, li, select, option {{
-                color: #00ff00 !important;
-                font-family: 'Courier New', Courier, monospace !important;
-            }}
-
-            .kpi-card {{
-                background-color: #000a00 !important;
-                border: 1px solid #00ff00 !important;
-                border-radius: 4px;
-                padding: 20px;
-                box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
-                height: 100%;
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-            }}
-            .kpi-title {{
-                font-size: 0.875rem;
-                color: #00cc00 !important;
-                text-transform: uppercase;
-                letter-spacing: 0.05em;
-                margin-bottom: 8px;
-                font-weight: 600;
-            }}
-            .kpi-value {{
-                font-size: 2.25rem;
-                font-weight: 700;
-                color: #00ff00 !important;
-                margin-bottom: 8px;
-            }}
-
-            .telemetry-box {{
-                background-color: #000a00 !important;
-                border: 1px solid #005500 !important;
-                border-radius: 4px;
-                padding: 12px;
-                margin-top: auto;
-                font-size: 0.8rem;
-                color: #00ff00 !important;
-                box-shadow: 0 0 5px rgba(0, 255, 0, 0.3);
-            }}
-            .telemetry-item {{
-                display: flex;
-                justify-content: space-between;
-                margin-bottom: 6px;
-                border-bottom: 1px dashed #003300;
-                padding-bottom: 4px;
-            }}
-            
-            button {{
-                background-color: #001100 !important;
-                color: #00ff00 !important;
-                border: 1px solid #00ff00 !important;
-                border-radius: 4px !important;
-            }}
-            button:hover {{
-                background-color: #003300 !important;
-                box-shadow: 0 0 10px rgba(0, 255, 0, 0.8) !important;
-            }}
-        </style>
-        """, unsafe_allow_html=True)
-    elif theme == "Light/Clean":
-        st.markdown(f"""
-        <style>
-            {common_css}
-            
-            .block-container {{
-                padding-top: 2rem !important;
-                max-width: 95% !important;
-                background-color: #f4f4f5 !important;
-            }}
-
-            .stApp {{
-                background-color: #ffffff !important;
-                color: #18181b !important;
-            }}
-
-            h1, h2, h3, h4, h5, h6 {{
-                color: #18181b !important;
-            }}
-            p, span, label, div, li {{
-                color: #27272a !important;
-            }}
-
-            .kpi-card {{
-                background-color: #ffffff !important;
-                border: 1px solid #e4e4e7 !important;
-                border-radius: 12px;
-                padding: 20px;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-                height: 100%;
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-            }}
-            .kpi-title {{
-                font-size: 0.875rem;
-                color: #71717a !important;
-                text-transform: uppercase;
-                letter-spacing: 0.05em;
-                margin-bottom: 8px;
-                font-weight: 600;
-            }}
-            .kpi-value {{
-                font-size: 2.25rem;
-                font-weight: 700;
-                color: #18181b !important;
-                margin-bottom: 8px;
-            }}
-
-            .telemetry-box {{
-                background-color: #ffffff !important;
-                border: 1px solid #e4e4e7 !important;
-                border-radius: 8px;
-                padding: 12px;
-                margin-top: auto;
-                font-size: 0.8rem;
-                color: #71717a !important;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-            }}
-            .telemetry-item {{
-                display: flex;
-                justify-content: space-between;
-                margin-bottom: 6px;
-                border-bottom: 1px solid #f4f4f5;
-                padding-bottom: 4px;
-            }}
-        </style>
-        """, unsafe_allow_html=True)
-    else: # Slate/Zinc (Default)
-        st.markdown(f"""
-        <style>
-            {common_css}
-            
-            .block-container {{
-                padding-top: 2rem !important;
-                max-width: 95% !important;
-                background-color: #09090b;
-            }}
-
-            .stApp {{
-                background-color: #09090b;
-                color: #f4f4f5;
-            }}
-
-            .kpi-card {{
-                background-color: #18181b;
-                border: 1px solid #27272a;
-                border-radius: 12px;
-                padding: 20px;
-                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
-                height: 100%;
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-            }}
-            .kpi-title {{
-                font-size: 0.875rem;
-                color: #a1a1aa;
-                text-transform: uppercase;
-                letter-spacing: 0.05em;
-                margin-bottom: 8px;
-                font-weight: 600;
-            }}
-            .kpi-value {{
-                font-size: 2.25rem;
-                font-weight: 700;
-                color: #fafafa;
-                margin-bottom: 8px;
-            }}
-
-            .telemetry-box {{
-                background-color: #18181b;
-                border: 1px solid #27272a;
-                border-radius: 8px;
-                padding: 12px;
-                margin-top: auto;
-                font-size: 0.8rem;
-                color: #a1a1aa;
-            }}
-            .telemetry-item {{
-                display: flex;
-                justify-content: space-between;
-                margin-bottom: 6px;
-            }}
-        </style>
-        """, unsafe_allow_html=True)
+    st.markdown(f"""
+    <style>
+    {css_content}
+    </style>
+    <script>
+        document.documentElement.setAttribute('data-theme', '{theme_attr}');
+    </script>
+    """, unsafe_allow_html=True)
 
 # Appliquer le thème
 inject_custom_theme()
+
+# -----------------------------------------------------------------------------
+# Particules animées & Raccourcis clavier (JS natif, sans dépendances)
+# -----------------------------------------------------------------------------
+st.markdown("""
+<canvas id="particles-canvas" class="particles-canvas"></canvas>
+<div class="toast-container" id="toast-container"></div>
+<script>
+(function() {
+    // ── Particle Background ───────────────────────────────────────────────
+    const canvas = document.getElementById('particles-canvas');
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        let w, h, particles = [];
+        const particleCount = 50;
+
+        function resize() {
+            w = canvas.width = window.innerWidth;
+            h = canvas.height = window.innerHeight;
+        }
+        resize();
+        window.addEventListener('resize', resize);
+
+        class Particle {
+            constructor() {
+                this.reset();
+            }
+            reset() {
+                this.x = Math.random() * w;
+                this.y = Math.random() * h;
+                this.vx = (Math.random() - 0.5) * 0.4;
+                this.vy = (Math.random() - 0.5) * 0.4;
+                this.size = Math.random() * 1.5 + 0.5;
+                this.opacity = Math.random() * 0.4 + 0.1;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                if (this.x < 0 || this.x > w) this.vx *= -1;
+                if (this.y < 0 || this.y > h) this.vy *= -1;
+            }
+            draw(ctx) {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                const accent = getComputedStyle(document.documentElement).getPropertyValue('--color-accent').trim() || '#7c3aed';
+                ctx.fillStyle = accent;
+                ctx.globalAlpha = this.opacity;
+                ctx.fill();
+                ctx.globalAlpha = 1;
+                // Draw connection lines to nearby particles
+                for (let j = 0; j < particles.length; j++) {
+                    const p2 = particles[j];
+                    const dx = this.x - p2.x;
+                    const dy = this.y - p2.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 120) {
+                        ctx.beginPath();
+                        ctx.moveTo(this.x, this.y);
+                        ctx.lineTo(p2.x, p2.y);
+                        ctx.strokeStyle = accent;
+                        ctx.globalAlpha = 0.06 * (1 - dist / 120);
+                        ctx.lineWidth = 0.5;
+                        ctx.stroke();
+                        ctx.globalAlpha = 1;
+                    }
+                }
+            }
+        }
+
+        for (let i = 0; i < particleCount; i++) {
+            particles.push(new Particle());
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, w, h);
+            particles.forEach(p => { p.update(); p.draw(ctx); });
+            requestAnimationFrame(animate);
+        }
+        animate();
+    }
+
+    // ── Keyboard Shortcuts ────────────────────────────────────────────────
+    document.addEventListener('keydown', function(e) {
+        // Ctrl+Enter: click the submit button
+        if (e.ctrlKey && e.key === 'Enter') {
+            const submitBtn = document.querySelector('button[kind="primary"], .stButton > button');
+            if (submitBtn) submitBtn.click();
+        }
+        // Ctrl+Shift+S: focus sidebar schedule
+        if (e.ctrlKey && e.shiftKey && e.key === 'S') {
+            const sidebarLinks = document.querySelectorAll('[data-testid="stSidebar"] a, [data-testid="stSidebar"] button');
+            sidebarLinks.forEach(el => { if (el.textContent.includes('Planificateur')) el.click(); });
+        }
+    });
+
+    // ── Toast Notification System ─────────────────────────────────────────
+    window.showToast = function(message, type = 'info', duration = 4000) {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+        const toast = document.createElement('div');
+        toast.className = 'toast ' + type;
+        const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+        toast.innerHTML = '<span>' + (icons[type] || '') + '</span> ' + message;
+        container.appendChild(toast);
+        setTimeout(() => {
+            toast.style.animation = 'slideOutRight 0.3s ease-in forwards';
+            setTimeout(() => toast.remove(), 300);
+        }, duration);
+    };
+
+    // ── Ripple Effect on Buttons ──────────────────────────────────────────
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('button');
+        if (!btn) return;
+        const ripple = document.createElement('span');
+        ripple.className = 'ripple-effect';
+        const rect = btn.getBoundingClientRect();
+        ripple.style.left = (e.clientX - rect.left) + 'px';
+        ripple.style.top = (e.clientY - rect.top) + 'px';
+        ripple.style.width = ripple.style.height = Math.max(rect.width, rect.height) + 'px';
+        btn.style.position = btn.style.position || 'relative';
+        btn.style.overflow = 'hidden';
+        btn.appendChild(ripple);
+        setTimeout(() => ripple.remove(), 600);
+    });
+})();
+</script>
+""", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # Barre Latérale (Sidebar)
@@ -669,8 +587,8 @@ with st.sidebar:
         st.image("assets/SentientAIPurple.png", width=120)
     except:
         pass
-    st.markdown("### Sentient AI")
-    st.markdown("<p style='color:#a1a1aa; font-size:0.85rem; margin-top:-10px;'>Moteur PTaaS 100% Local</p>", unsafe_allow_html=True)
+    st.markdown("<h3 style='font-family: var(--font-display); margin-bottom:0;'>Sentient AI</h3>", unsafe_allow_html=True)
+    st.markdown("<p style='color:var(--color-text-muted); font-size:0.8rem; margin-top:-8px;'><span class='status-dot online'></span> Moteur PTaaS 100% Local</p>", unsafe_allow_html=True)
     st.markdown("---")
     
     if st.session_state.role == "client":
@@ -707,8 +625,14 @@ with st.sidebar:
     
     # Section Utilisateur Connecté
     st.markdown(f"""
-        <div style="font-size:0.85rem; color:#a1a1aa; margin-bottom:10px;">
-            👤 Utilisateur : <strong>{st.session_state.username}</strong> ({st.session_state.role})
+        <div class="glass-panel" style="font-size:0.8rem; margin-bottom:10px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:1.2rem;">👤</span>
+                <div>
+                    <strong>{st.session_state.username}</strong>
+                    <br><span style="color:var(--color-text-muted); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.05em;">{st.session_state.role}</span>
+                </div>
+            </div>
         </div>
     """, unsafe_allow_html=True)
     if st.button("🚪 Se déconnecter", type="secondary", use_container_width=True):
@@ -861,50 +785,55 @@ if menu == "📊 Tableau de Bord":
     c1, c2, c3, c4 = st.columns(4)
     with c1:
         st.markdown(f"""
-            <div class="kpi-card">
+            <div class="kpi-card animate-scale-in">
+                <div class="kpi-icon">📋</div>
                 <div class="kpi-title">Audits Réalisés</div>
-                <div class="kpi-value">{total_scans}</div>
-                <div style="font-size:0.75rem; color:#22c55e;">+1 cette semaine</div>
+                <div class="kpi-value counter" data-target="{total_scans}">{total_scans}</div>
+                <div class="kpi-subtitle">+1 cette semaine</div>
             </div>
         """, unsafe_allow_html=True)
     with c2:
         st.markdown(f"""
-            <div class="kpi-card">
+            <div class="kpi-card animate-scale-in">
+                <div class="kpi-icon">🖥️</div>
                 <div class="kpi-title">Actifs Scannés</div>
-                <div class="kpi-value">{total_hosts}</div>
-                <div style="font-size:0.75rem; color:#a1a1aa;">Endpoints & Serveurs</div>
+                <div class="kpi-value counter" data-target="{total_hosts}">{total_hosts}</div>
+                <div class="kpi-subtitle">Endpoints & Serveurs</div>
             </div>
         """, unsafe_allow_html=True)
     with c3:
+        crit_class = "critical" if crit_count > 0 else ""
         st.markdown(f"""
-            <div class="kpi-card">
+            <div class="kpi-card animate-scale-in {crit_class}">
+                <div class="kpi-icon">🎯</div>
                 <div class="kpi-title">Failles Identifiées</div>
-                <div class="kpi-value">{total_vulns}</div>
-                <div>
-                    <span class="badge badge-crit">🔴 {crit_count}</span>
+                <div class="kpi-value counter" data-target="{total_vulns}">{total_vulns}</div>
+                <div style="margin-top:6px;">
+                    <span class="badge badge-critical">🔴 {crit_count}</span>
                     <span class="badge badge-high">🟠 {high_count}</span>
-                    <span class="badge badge-med">🟡 {med_count}</span>
+                    <span class="badge badge-medium">🟡 {med_count}</span>
                 </div>
             </div>
         """, unsafe_allow_html=True)
     with c4:
         score = "A" if total_vulns == 0 else "B" if crit_count == 0 else "C-" if crit_count < 3 else "F"
-        score_color = "#22c55e" if score in ["A", "B"] else "#eab308" if score == "C-" else "#ef4444"
+        score_class = "success" if score in ["A", "B"] else "warning" if score == "C-" else "critical"
         st.markdown(f"""
-            <div class="kpi-card">
-                <div class="kpi-title">Score de Risque Moyen</div>
-                <div class="kpi-value" style="color:{score_color};">{score}</div>
-                <div style="font-size:0.75rem; color:#a1a1aa;">Évaluation globale</div>
+            <div class="kpi-card animate-scale-in {score_class}">
+                <div class="kpi-icon">🛡️</div>
+                <div class="kpi-title">Score de Risque</div>
+                <div class="kpi-value">{score}</div>
+                <div class="kpi-subtitle">Évaluation globale</div>
             </div>
         """, unsafe_allow_html=True)
 
     if latest_exposure > 0:
         st.markdown(f"""
-        <div style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(9, 9, 11, 0.2) 100%); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px; padding: 20px; margin-top: 20px; margin-bottom: 5px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+        <div class="glass-card animate-fade-in-up" style="border-color: rgba(239, 68, 68, 0.4); margin: 20px 0 5px 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
                 <div>
-                    <h4 style="margin: 0; color: #ef4444; font-size: 1.1rem; font-weight: 700;">⚠️ Exposition Financière Détectée</h4>
-                    <p style="margin: 5px 0 0 0; color: #a1a1aa; font-size: 0.9rem;">
+                    <h4 style="margin: 0; color: var(--color-error); font-size: 1.1rem; font-weight: 700;">⚠️ Exposition Financière Détectée</h4>
+                    <p style="margin: 5px 0 0 0; color: var(--color-text-secondary); font-size: 0.9rem;">
                         Le dernier scan de la cible <strong>{latest_scan['target']}</strong> présente une exposition financière estimée à <strong>{latest_exposure:,.2f} €</strong>.
                     </p>
                 </div>
@@ -936,7 +865,13 @@ if menu == "📊 Tableau de Bord":
             ).properties(height=300).configure_view(strokeWidth=0).configure_title(fontSize=16)
             st.altair_chart(chart)
         else:
-            st.info("Aucune vulnérabilité à afficher.")
+            st.markdown("""
+            <div class="empty-state">
+                <div class="empty-state-icon">🛡️</div>
+                <div class="empty-state-title">Aucune vulnérabilité détectée</div>
+                <div class="empty-state-subtitle">Le périmètre audité semble sain. Lancez un scan approfondi pour une analyse complète.</div>
+            </div>
+            """, unsafe_allow_html=True)
 
     with col_table:
         st.markdown("<h4 style='color:#e4e4e7; margin-bottom: 20px;'>Scans Récents</h4>", unsafe_allow_html=True)
@@ -966,7 +901,13 @@ if menu == "📊 Tableau de Bord":
                 }
             )
         else:
-            st.info("Aucun scan récent dans la base de données.")
+            st.markdown("""
+            <div class="empty-state">
+                <div class="empty-state-icon">🔍</div>
+                <div class="empty-state-title">Aucun scan récent</div>
+                <div class="empty-state-subtitle">Lancez votre premier audit depuis l'onglet « Lancer un Audit » pour commencer à analyser votre infrastructure.</div>
+            </div>
+            """, unsafe_allow_html=True)
 
 
 # ==========================================
@@ -1092,7 +1033,47 @@ elif menu == "⚡ Lancer un Audit" or st.session_state.get('force_menu') == "⚡
                 
             progress_bar = st.progress(0)
             status_container = st.container()
-            
+
+            # ── Stepper visuel ────────────────────────────────────────────
+            stepper_placeholder = st.empty()
+            stepper_placeholder.markdown(f"""
+            <div class="stepper">
+                <div class="stepper-step active">
+                    <div class="stepper-dot">🔍</div>
+                    <div class="stepper-label">Découverte</div>
+                </div>
+                <div class="stepper-step">
+                    <div class="stepper-dot">🎯</div>
+                    <div class="stepper-label">Vulnérabilités</div>
+                </div>
+                <div class="stepper-step">
+                    <div class="stepper-dot">🧠</div>
+                    <div class="stepper-label">Analyse IA</div>
+                </div>
+                <div class="stepper-step">
+                    <div class="stepper-dot">📄</div>
+                    <div class="stepper-label">Rapport</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            def update_stepper(step):
+                steps = ["🔍 Découverte", "🎯 Vulnérabilités", "🧠 Analyse IA", "📄 Rapport"]
+                items = ""
+                for i, label in enumerate(steps):
+                    if i < step:
+                        cls = "completed"
+                    elif i == step:
+                        cls = "active"
+                    else:
+                        cls = ""
+                    items += f"""
+                    <div class="stepper-step {cls}">
+                        <div class="stepper-dot">{label.split()[0]}</div>
+                        <div class="stepper-label">{label.split(maxsplit=1)[1] if len(label.split()) > 1 else label}</div>
+                    </div>"""
+                stepper_placeholder.markdown(f'<div class="stepper">{items}</div>', unsafe_allow_html=True)
+
             with status_container:
                 st.info(f"Initialisation de l'environnement pour : **{target_input}**...")
                 
@@ -1107,6 +1088,7 @@ elif menu == "⚡ Lancer un Audit" or st.session_state.get('force_menu') == "⚡
                         active_hosts = ["demo-target.local"]
                         status1.update(label="Cible de démonstration détectée (Simulation).", state="complete", expanded=False)
                     progress_bar.progress(25)
+                    update_stepper(1)  # Découverte → Vulnérabilités
                     
                     with st.status("Étape 2 : Analyse de vulnérabilités (Simulation)", expanded=True) as status2:
                         st.write("Chargement des vulnérabilités simulées de test...")
@@ -1136,6 +1118,7 @@ elif menu == "⚡ Lancer un Audit" or st.session_state.get('force_menu') == "⚡
                         ]
                         status2.update(label="Vulnérabilités de démonstration chargées.", state="complete", expanded=False)
                     progress_bar.progress(50)
+                    update_stepper(2)  # Vulnérabilités → Analyse IA
                 else:
                     # Étape optionnelle de Reconnaissance Étendue
                     recon_hosts = []
@@ -1245,6 +1228,7 @@ elif menu == "⚡ Lancer un Audit" or st.session_state.get('force_menu') == "⚡
                                 active_hosts = [target_input]
                             status_remote.update(label=f"Sonde distante terminée : {len(nuclei_results)} failles détectées au total.", state="complete", expanded=False)
                         progress_bar.progress(50)
+                        update_stepper(2)  # Vulnérabilités → Analyse IA
                     else:
                         with st.status("Étape 1 : Découverte du périmètre réseau (Nmap)", expanded=True) as status1:
                             st.write("Exécution des sondes réseau...")
@@ -1272,43 +1256,45 @@ elif menu == "⚡ Lancer un Audit" or st.session_state.get('force_menu') == "⚡
                             else:
                                 status1.update(label=f"Périmètre sécurisé : {len(active_hosts)} hôte(s) identifié(s).", state="complete", expanded=False)
                         progress_bar.progress(25)
-                        
-                        # Mapping Nuclei Tags
-                        selected_tags = []
-                        if "Web CVEs" in nuclei_mode_sel: selected_tags.append("cve")
-                        if "Passif" in nuclei_mode_sel: selected_tags.append("passive")
-                        
-                        if use_cve: selected_tags.append("cve")
-                        if use_default_logins: selected_tags.append("default-login")
-                        if use_exposures: selected_tags.append("exposure")
-                        if use_misconfigs: selected_tags.append("misconfig")
-                        if use_injections: selected_tags.extend(["sqli", "xss", "lfi", "ssrf"])
-                        if use_rce: selected_tags.append("rce")
-                        if use_redirects: selected_tags.extend(["redirect", "takeover"])
-                        if use_ssl: selected_tags.append("ssl")
-                        if use_dns: selected_tags.append("dns")
-                        if use_network_services: selected_tags.extend(["network", "tcp", "ssh", "ftp", "smtp"])
-                        
-                        # Dédupliquer les tags
-                        selected_tags = list(set(selected_tags))
-                        
-                        if not selected_tags and "Full" not in nuclei_mode_sel:
-                            selected_tags = ["cve", "default-login", "exposure", "misconfig"] # Fallback robuste
-                        
-                        # Parsing des en-têtes personnalisés (ex: Cookie: session=abc)
-                        custom_headers = {}
-                        if auth_cookies:
-                            if ":" in auth_cookies:
-                                hk, hv = auth_cookies.split(":", 1)
-                                custom_headers[hk.strip()] = hv.strip()
-                            else:
-                                custom_headers["Cookie"] = auth_cookies.strip()
-                                
-                        with st.status("Étape 2 : Analyse de vulnérabilités (Nuclei)", expanded=True) as status2:
-                            st.write("Exécution des templates de sécurité (Cette étape est longue)...")
-                            nuclei_results = scan_nuclei(active_hosts, selected_tags if selected_tags else None, headers=custom_headers)
-                            status2.update(label=f"Analyse terminée : {len(nuclei_results)} anomalies relevées.", state="complete", expanded=False)
-                        progress_bar.progress(50)   
+                        update_stepper(1)  # Découverte → Vulnérabilités
+
+                    # Mapping Nuclei Tags
+                    selected_tags = []
+                    if "Web CVEs" in nuclei_mode_sel: selected_tags.append("cve")
+                    if "Passif" in nuclei_mode_sel: selected_tags.append("passive")
+
+                    if use_cve: selected_tags.append("cve")
+                    if use_default_logins: selected_tags.append("default-login")
+                    if use_exposures: selected_tags.append("exposure")
+                    if use_misconfigs: selected_tags.append("misconfig")
+                    if use_injections: selected_tags.extend(["sqli", "xss", "lfi", "ssrf"])
+                    if use_rce: selected_tags.append("rce")
+                    if use_redirects: selected_tags.extend(["redirect", "takeover"])
+                    if use_ssl: selected_tags.append("ssl")
+                    if use_dns: selected_tags.append("dns")
+                    if use_network_services: selected_tags.extend(["network", "tcp", "ssh", "ftp", "smtp"])
+
+                    # Dédupliquer les tags
+                    selected_tags = list(set(selected_tags))
+
+                    if not selected_tags and "Full" not in nuclei_mode_sel:
+                        selected_tags = ["cve", "default-login", "exposure", "misconfig"] # Fallback robuste
+
+                    # Parsing des en-têtes personnalisés (ex: Cookie: session=abc)
+                    custom_headers = {}
+                    if auth_cookies:
+                        if ":" in auth_cookies:
+                            hk, hv = auth_cookies.split(":", 1)
+                            custom_headers[hk.strip()] = hv.strip()
+                        else:
+                            custom_headers["Cookie"] = auth_cookies.strip()
+
+                    with st.status("Étape 2 : Analyse de vulnérabilités (Nuclei)", expanded=True) as status2:
+                        st.write("Exécution des templates de sécurité (Cette étape est longue)...")
+                        nuclei_results = scan_nuclei(active_hosts, selected_tags if selected_tags else None, headers=custom_headers)
+                        status2.update(label=f"Analyse terminée : {len(nuclei_results)} anomalies relevées.", state="complete", expanded=False)
+                    progress_bar.progress(50)
+                    update_stepper(2)  # Vulnérabilités → Analyse IA
                     
                     # Exécuter les outils DevSecOps additionnels
                     if use_sast:
@@ -1326,7 +1312,8 @@ elif menu == "⚡ Lancer un Audit" or st.session_state.get('force_menu') == "⚡
                             status_trivy.update(label=f"Trivy terminée : {len(trivy_results)} failles détectées.", state="complete", expanded=False)
                             
                     progress_bar.progress(50)
-                
+                    update_stepper(2)  # Vulnérabilités → Analyse IA
+
                 with st.status("Étape 3 : Traitement par l'IA (Ollama)", expanded=True) as status3:
                     st.write("Synthèse et génération des recommandations...")
                     
@@ -1369,7 +1356,8 @@ elif menu == "⚡ Lancer un Audit" or st.session_state.get('force_menu') == "⚡
                     markdown_report = analyze_with_ollama(target_desc, nuclei_results, language=report_lang)
                     status3.update(label="Raisonnement IA terminé.", state="complete", expanded=False)
                 progress_bar.progress(75)
-                
+                update_stepper(3)  # Analyse IA → Rapport
+
                 with st.status("Étape 4 : Compilation du livrable", expanded=True) as status4:
                     os.makedirs("reports", exist_ok=True)
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -1382,7 +1370,8 @@ elif menu == "⚡ Lancer un Audit" or st.session_state.get('force_menu') == "⚡
                     export_to_pdf(markdown_report, pdf_filename)
                     status4.update(label="Rapports générés (PDF & Markdown).", state="complete", expanded=False)
                 progress_bar.progress(100)
-                
+                update_stepper(4)  # Terminé !
+
             add_scan(target_input, len(active_hosts), len(nuclei_results), pdf_filename, vulnerabilities_json=json.dumps(nuclei_results))
             
             # Déclencher la notification Webhook
