@@ -47,8 +47,8 @@ def init_db():
     cursor.execute('SELECT COUNT(*) FROM users')
     if cursor.fetchone()[0] == 0:
         import hashlib
-        admin_hash = hashlib.sha256("admin0022".encode()).hexdigest()
-        client_hash = hashlib.sha256("client0022".encode()).hexdigest()
+        admin_hash = hashlib.sha256("admin".encode()).hexdigest()
+        client_hash = hashlib.sha256("client".encode()).hexdigest()
         cursor.execute('INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)', ("admin", admin_hash, "admin"))
         cursor.execute('INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)', ("client", client_hash, "client"))
     conn.commit()

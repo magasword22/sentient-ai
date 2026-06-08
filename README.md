@@ -105,8 +105,8 @@ python3 sentient_cli.py --target debian:latest --trivy --format json --output tr
 ## 🎨 Sécurité RBAC & Thèmes Personnalisés
 
 - **Gestion des Accès & Rôles (RBAC)** : L'accès à l'application Streamlit est sécurisé par un écran de connexion relié à une base locale SQLite. Deux rôles par défaut sont configurés :
-  - `admin` (mot de passe par défaut: `admin0022`) : accès complet (configuration, audits, planificateur, gestion des utilisateurs).
-  - `client` (mot de passe par défaut: `client0022`) : accès restreint en lecture seule aux tableaux de bord, rapports et base de connaissances.
+  - `admin` (mot de passe par défaut: `admin`) : accès complet (configuration, audits, planificateur, gestion des utilisateurs).
+  - `client` (mot de passe par défaut: `client`) : accès restreint en lecture seule aux tableaux de bord, rapports et base de connaissances.
 - **Thèmes de l'Interface Graphique** : Personnalisez l'esthétique de votre tableau de bord en choisissant parmi 3 thèmes dans l'onglet **Configuration** :
   - **Slate/Zinc** : le thème sombre moderne et élégant par défaut.
   - **Light/Clean** : un thème clair, épuré et professionnel.
