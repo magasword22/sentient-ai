@@ -156,6 +156,8 @@ class ConfigUpdate(pydantic.BaseModel):
     webhook_url: Optional[str] = None
     security_mode: Optional[str] = None   # "local" | "public"
     api_token_secret: Optional[str] = None  # Token pour le mode public
+    ssl_cert: Optional[str] = None          # Chemin fullchain.pem
+    ssl_key: Optional[str] = None           # Chemin privkey.pem
 
 # ── Auth ─────────────────────────────────────────────────────────────────
 @app.post("/api/auth/login")
