@@ -118,3 +118,29 @@ def autotune():
     
 if __name__ == "__main__":
     autotune()
+
+def get_telemetry():
+    """Retourne les métriques système en temps réel pour l'API."""
+    import psutil
+    cpu = psutil.cpu_percent(interval=1)
+    ram = psutil.virtual_memory()
+    gpu_info = {"available": False}
+    # Try GPU via rocm-smi or nvidia-smi
+    try:
+        out = subprocess.check_output(['rocm-smi', '--showuse', '--csv'], stderr=subprocess.DEVNULL, timeout=5).decode()
+        gpu_info = {"available": True, "util": 0, "vram_used": 0, "vram_total": 0}
+    except:
+        try:
+            out = subprocess.check_output(['nvidia-smi', '--query-gpu=utilization.gpu,memory.used,memory.total', '--format=csv,noheader,nounits'], stderr=subprocess.DEVNULL, timeout=5).decode()
+            parts = out.strip().split(',')
+            if len(parts) >= 3:
+                gpu_info = {"available": True, "util": float(parts[0].strip()), "vram_used": float(parts[1].strip()), "vram_total": float(parts[2].strip())}
+        except:
+            pass
+    return {
+        "cpu_pct": cpu,
+        "ram_pct": ram.percent,
+        "ram_total_gb": round(ram.total / (1024**3), 1),
+        "ram_used_gb": round(ram.used / (1024**3), 1),
+        "gpu": gpu_info,
+    }

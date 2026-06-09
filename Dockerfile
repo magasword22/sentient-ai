@@ -60,5 +60,5 @@ COPY . .
 # Exposition du port par défaut de Streamlit
 EXPOSE 8501
 
-# Démarrage de l'application Streamlit
-CMD ["streamlit", "run", "app.py"]
+# Démarrage de l'API FastAPI (remplace Streamlit)
+CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8501"]
