@@ -37,12 +37,33 @@ app = FastAPI(title="Sentient AI API", version="2.0", docs_url=None, redoc_url=N
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:8501",
+        "http://127.0.0.1:8501",
+        "http://[::1]:8501",
+    ],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 init_db()
+
+# ── Rate limiter (in-memory, 10 req/sec per IP) ──────────────────────────
+_rate_store: dict = {}
+
+@app.middleware("http")
+async def rate_limit_middleware(request, call_next):
+    from time import time
+    ip = request.client.host if request.client else "unknown"
+    now = time()
+    window = _rate_store.get(ip, [])
+    window = [t for t in window if now - t < 1.0]
+    if len(window) > 20:  # 20 req/sec max
+        return JSONResponse({"detail": "Trop de requêtes"}, status_code=429)
+    window.append(now)
+    _rate_store[ip] = window
+    return await call_next(request)
 
 # ── Scan state (in-memory, survives between requests) ────────────────────
 active_scans: dict[str, dict] = {}  # scan_id → {status, progress, result}
@@ -128,10 +149,16 @@ def list_reports():
 
 @app.get("/api/reports/{filename}")
 def download_report(filename: str):
+    # Block path traversal
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(400, "Nom de fichier invalide")
     path = Path("reports") / filename
+    path = path.resolve()
+    if not str(path).startswith(str(Path("reports").resolve())):
+        raise HTTPException(403, "Accès refusé")
     if not path.exists():
         raise HTTPException(404, "Fichier introuvable")
-    return FileResponse(path, media_type="application/pdf", filename=filename)
+    return FileResponse(path, media_type="application/pdf", filename=path.name)
 
 # ── Telemetry ────────────────────────────────────────────────────────────
 @app.get("/api/telemetry")
@@ -546,7 +573,12 @@ assets_dir = os.path.dirname(os.path.abspath(__file__))
 @app.get("/assets/{path:path}")
 async def serve_assets(path: str):
     """Sert les fichiers du dossier assets/."""
+    if ".." in path or path.startswith("/"):
+        raise HTTPException(400, "Chemin invalide")
     file_path = os.path.join(assets_dir, "assets", path)
+    file_path = os.path.realpath(file_path)
+    if not file_path.startswith(os.path.realpath(os.path.join(assets_dir, "assets"))):
+        raise HTTPException(403, "Accès refusé")
     if os.path.isfile(file_path):
         return FileResponse(file_path)
     raise HTTPException(404)

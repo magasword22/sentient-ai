@@ -1,8 +1,14 @@
 import sqlite3
+import hashlib
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 DB_FILE = "audits.db"
+_SALT = b"sentient_s3cur1ty_s4lt_x9"
+
+def _hash_password(password: str) -> str:
+    """PBKDF2-HMAC-SHA256 — 100k itérations, résistant au brute-force."""
+    return hashlib.pbkdf2_hmac("sha256", password.encode(), _SALT, 100000).hex()
 
 def init_db():
     """Initialise la base de données SQLite."""
@@ -46,9 +52,9 @@ def init_db():
     # Insérer les utilisateurs par défaut s'ils n'existent pas
     cursor.execute('SELECT COUNT(*) FROM users')
     if cursor.fetchone()[0] == 0:
-        import hashlib
-        admin_hash = hashlib.sha256("admin".encode()).hexdigest()
-        client_hash = hashlib.sha256("client".encode()).hexdigest()
+        
+        admin_hash = _hash_password("admin")
+        client_hash = _hash_password("client")
         cursor.execute('INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)', ("admin", admin_hash, "admin"))
         cursor.execute('INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)', ("client", client_hash, "client"))
     conn.commit()
@@ -146,10 +152,10 @@ def update_schedule_last_run(schedule_id, last_run, next_run):
 
 def verify_user(username, password):
     """Vérifie les informations d'un utilisateur local et retourne (is_valid, role)."""
-    import hashlib
+    
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
-    pwd_hash = hashlib.sha256(password.encode()).hexdigest()
+    pwd_hash = _hash_password(password)
     cursor.execute('SELECT role FROM users WHERE username = ? AND password_hash = ?', (username, pwd_hash))
     row = cursor.fetchone()
     conn.close()
@@ -159,10 +165,10 @@ def verify_user(username, password):
 
 def add_user(username, password, role):
     """Ajoute un utilisateur dans la base de données."""
-    import hashlib
+    
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
-    pwd_hash = hashlib.sha256(password.encode()).hexdigest()
+    pwd_hash = _hash_password(password)
     try:
         cursor.execute('INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)', (username, pwd_hash, role))
         conn.commit()
