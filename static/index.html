@@ -173,6 +173,7 @@ textarea.input{resize:vertical;min-height:60px;font-family:var(--font-mono);font
     <div class="nav-item" data-page="chat" onclick="navTo('chat')"><span class="nav-icon">💬</span><span>Assistant IA</span></div>
     <div class="nav-item" data-page="rag" onclick="navTo('rag')"><span class="nav-icon">🧠</span><span>Base RAG</span></div>
     <div class="nav-item" data-page="telemetry" onclick="navTo('telemetry')"><span class="nav-icon">📡</span><span>Diagnostic</span></div>
+    <div class="nav-item" data-page="monitor" onclick="navTo('monitor')"><span class="nav-icon">🛰️</span><span>Monitoring</span></div>
     <div class="nav-item" data-page="config" onclick="navTo('config')"><span class="nav-icon">⚙️</span><span>Configuration</span></div>
     <div class="sidebar-footer">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
@@ -394,6 +395,14 @@ textarea.input{resize:vertical;min-height:60px;font-family:var(--font-mono);font
       </div>
     </div>
 
+    <!-- ── MONITORING ──────────────────────────────────────────────── -->
+    <div class="page" id="page-monitor">
+      <h2 style="font-family:var(--font-display);margin-bottom:4px;">🛰️ Monitoring des Sondes</h2>
+      <p style="color:var(--text-muted);margin-bottom:24px;">État des agents distants en temps réel</p>
+      <div id="monitor-grid"></div>
+      <button class="btn btn-secondary btn-sm" onclick="loadMonitoring()" style="margin-top:12px;">🔄 Rafraîchir</button>
+    </div>
+
     <!-- ── CONFIG ───────────────────────────────────────────────────── -->
     <div class="page" id="page-config">
       <h2 style="font-family:var(--font-display);margin-bottom:4px;">Configuration</h2>
@@ -470,7 +479,7 @@ function navTo(page){
   if(page==='dashboard')loadDashboard();
   if(page==='reports')loadReports();
   if(page==='roi')loadROI();
-  if(page==='telemetry')loadTelemetry();
+  if(page==='telemetry')loadTelemetry();if(page==='monitor')loadMonitoring();
   if(page==='schedules')loadSchedules();
   if(page==='config')loadConfig();
   if(page==='rag')loadRagDocs();
@@ -659,6 +668,7 @@ async function sendChat(){
 async function loadProbes(){try{const c=await fetch(API+'/api/config').then(r=>r.json());const probes=c.remote_probes||[];const sel=document.getElementById('scan-probe');sel.innerHTML='<option value="">Local (Serveur principal)</option>'+probes.map(p=>'<option value="'+p.url+'">'+p.name+' ('+p.url+')</option>').join('');document.getElementById('probes-list').innerHTML=probes.length===0?'<div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:8px;">Aucune sonde enregistrée</div>':probes.map(p=>'<div class="glass-panel" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-size:0.8rem;"><span>📡 '+p.name+' — '+p.url+'</span><button class="btn btn-danger btn-sm" onclick="deleteProbe(\''+p.name+'\')">🗑</button></div>').join('')}catch(e){}}
 async function addProbe(){const n=document.getElementById('probe-name').value,u=document.getElementById('probe-url').value,t=document.getElementById('probe-token').value;if(!n||!u)return;await fetch(API+'/api/probes?name='+encodeURIComponent(n)+'&url='+encodeURIComponent(u)+'&token='+encodeURIComponent(t),{method:'POST'});toast('Sonde ajoutée','success');document.getElementById('probe-name').value='';document.getElementById('probe-url').value='';loadProbes()}
 async function deleteProbe(name){await fetch(API+'/api/probes/'+encodeURIComponent(name),{method:'DELETE'});loadProbes()}
+async function loadMonitoring(){try{const p=await fetch(API+'/api/probes/status').then(r=>r.json());const el=document.getElementById('monitor-grid');if(p.length===0){el.innerHTML='<div class="empty-state"><div class="empty-state-icon">🛰️</div><div class="empty-state-title">Aucune sonde enregistrée</div><div class="empty-state-desc">Ajoutez des sondes dans Configuration, puis déployez sentient_agent.py avec --master.</div></div>';return}el.innerHTML='<div class="kpi-grid">'+p.map(a=>'<div class="kpi-card'+(a.online?'':' critical')+'><div style="position:absolute;top:12px;right:12px;"><span class="badge '+(a.online?'badge-info':'badge-critical')+'">'+(a.online?'🟢 Online':'🔴 Offline')+'</span></div><div class="kpi-icon">📡</div><div class="kpi-title">'+a.name+'</div><div class="kpi-value" style="font-size:0.9rem;font-family:var(--font-mono);word-break:break-all;">'+a.url+'</div><div class="kpi-subtitle">'+(a.online?(a.active_scan?'🔍 Scan: '+a.scan_target:'✅ Inactif'):'⏳ Hors ligne')+'</div></div>').join('')+'</div>'}catch(e){}}
 
 // ── Keyboard shortcuts ─────────────────────────────────────────────────
 document.getElementById('login-pass').addEventListener('keydown',e=>{if(e.key=='Enter')login()});

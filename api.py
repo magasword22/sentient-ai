@@ -442,6 +442,53 @@ def delete_probe(name: str):
     report_config.save_report_config(**cfg)
     return {"status": "ok"}
 
+# ── Probe monitoring ──────────────────────────────────────────────────────
+# In-memory state: {probe_name: {last_seen, ip, status, uptime, active_scan}}
+probe_health: dict = {}
+
+@app.post("/api/probes/heartbeat")
+def probe_heartbeat(name: str = "", url: str = "", scan_active: bool = False, scan_target: str = ""):
+    """Les sondes envoient un heartbeat toutes les 30s pour signaler qu'elles sont en ligne."""
+    now = datetime.now().isoformat()
+    probe_health[name or url] = {
+        "name": name or url,
+        "url": url,
+        "last_seen": now,
+        "status": "online",
+        "active_scan": scan_active,
+        "scan_target": scan_target if scan_active else "",
+        "first_seen": probe_health.get(name or url, {}).get("first_seen", now),
+    }
+    return {"status": "ok"}
+
+@app.get("/api/probes/status")
+def probe_status():
+    """Retourne l'état de toutes les sondes enregistrées + health."""
+    cfg = report_config.load_report_config()
+    probes = cfg.get("remote_probes", [])
+    now = datetime.now()
+    result = []
+    for p in probes:
+        h = probe_health.get(p["name"], {})
+        last_seen = h.get("last_seen", "")
+        is_online = False
+        if last_seen:
+            try:
+                last_dt = datetime.fromisoformat(last_seen)
+                is_online = (now - last_dt).total_seconds() < 120  # 2 min timeout
+            except:
+                pass
+        result.append({
+            "name": p["name"],
+            "url": p["url"],
+            "online": is_online,
+            "last_seen": last_seen,
+            "active_scan": h.get("active_scan", False),
+            "scan_target": h.get("scan_target", ""),
+            "first_seen": h.get("first_seen", ""),
+        })
+    return result
+
 # ── Users ────────────────────────────────────────────────────────────────
 @app.get("/api/users")
 def list_users():
