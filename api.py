@@ -132,6 +132,20 @@ def download_report(filename: str):
 def telemetry():
     return autotune.get_telemetry()
 
+# ── IP LAN ───────────────────────────────────────────────────────────────
+@app.get("/api/ip")
+def get_ip():
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+    except:
+        ip = "127.0.0.1"
+    finally:
+        s.close()
+    return {"ip": ip}
+
 # ── RAG ──────────────────────────────────────────────────────────────────
 @app.post("/api/rag/upload")
 async def upload_rag(file: UploadFile):

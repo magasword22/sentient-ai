@@ -175,8 +175,13 @@ textarea.input{resize:vertical;min-height:60px;font-family:var(--font-mono);font
     <div class="nav-item" data-page="telemetry" onclick="navTo('telemetry')"><span class="nav-icon">📡</span><span>Diagnostic</span></div>
     <div class="nav-item" data-page="config" onclick="navTo('config')"><span class="nav-icon">⚙️</span><span>Configuration</span></div>
     <div class="sidebar-footer">
-      <span>👤</span><span id="nav-user">admin</span>
-      <button class="btn btn-secondary btn-sm" style="margin-left:auto;" onclick="logout()">↪</button>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <span>👤</span><span id="nav-user">admin</span>
+        <button class="btn btn-secondary btn-sm" style="margin-left:auto;" onclick="logout()">↪</button>
+      </div>
+      <div class="glass-panel" style="padding:6px 10px;cursor:pointer;font-size:0.7rem;text-align:center;" onclick="navigator.clipboard.writeText('http://'+document.getElementById('lan-ip').textContent+':8501');toast('URL copiée !','success')" title="Cliquer pour copier l'URL réseau">
+        🌐 <span id="lan-ip">—</span>:8501
+      </div>
     </div>
   </nav>
 
@@ -585,8 +590,9 @@ async function loadProbes(){try{const c=await fetch(API+'/api/config').then(r=>r
 // ── Keyboard shortcuts ─────────────────────────────────────────────────
 document.getElementById('login-pass').addEventListener('keydown',e=>{if(e.key=='Enter')login()});
 document.addEventListener('keydown',e=>{if(e.ctrlKey&&e.key=='Enter'){e.preventDefault();if(document.getElementById('page-scan').classList.contains('active'))launchScan()}});
-// Load probes on startup
+// Load probes + detect LAN IP on startup
 loadProbes();
+fetch('/api/ip').then(r=>r.json()).then(d=>{document.getElementById('lan-ip').textContent=d.ip}).catch(()=>{document.getElementById('lan-ip').textContent=location.hostname});
 </script>
 </body>
 </html>
