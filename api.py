@@ -69,15 +69,30 @@ async def rate_limit_middleware(request, call_next):
 SECURITY_MODE = os.environ.get("SECURITY_MODE", "local")  # "local" | "public"
 API_TOKEN = os.environ.get("API_TOKEN", "")  # Required when SECURITY_MODE=public
 
+def get_effective_security():
+    """Priorité : env var > config fichier > défaut local."""
+    mode = SECURITY_MODE
+    token = API_TOKEN
+    try:
+        cfg = report_config.load_report_config()
+        if not os.environ.get("SECURITY_MODE"):  # env pas définie → utiliser config
+            mode = cfg.get("security_mode", "local")
+        if not os.environ.get("API_TOKEN"):  # env pas définie → utiliser config
+            token = cfg.get("api_token_secret", "")
+    except:
+        pass
+    return mode, token
+
 @app.middleware("http")
 async def security_headers_middleware(request, call_next):
     """Ajoute les en-têtes de sécurité HTTP."""
+    mode, _ = get_effective_security()
     response = await call_next(request)
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
-    if SECURITY_MODE == "public":
+    if mode == "public":
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
         response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' ws: wss:;"
     return response
@@ -85,9 +100,10 @@ async def security_headers_middleware(request, call_next):
 @app.middleware("http")
 async def api_auth_middleware(request, call_next):
     """En mode public, vérifie le token Bearer sur toutes les routes /api/ (sauf login)."""
-    if SECURITY_MODE == "public" and request.url.path.startswith("/api/") and request.url.path != "/api/auth/login":
+    mode, token = get_effective_security()
+    if mode == "public" and request.url.path.startswith("/api/") and request.url.path != "/api/auth/login":
         auth = request.headers.get("Authorization", "")
-        if not auth or auth != f"Bearer {API_TOKEN}":
+        if not auth or auth != f"Bearer {token}":
             return JSONResponse({"detail": "Authentification requise — mode public activé"}, status_code=401)
     return await call_next(request)
 
@@ -138,6 +154,8 @@ class ConfigUpdate(pydantic.BaseModel):
     mistral_api_key: Optional[str] = None
     webhook_provider: Optional[str] = None
     webhook_url: Optional[str] = None
+    security_mode: Optional[str] = None   # "local" | "public"
+    api_token_secret: Optional[str] = None  # Token pour le mode public
 
 # ── Auth ─────────────────────────────────────────────────────────────────
 @app.post("/api/auth/login")
@@ -150,8 +168,9 @@ def login(req: LoginRequest):
 @app.get("/api/config")
 def get_config():
     cfg = report_config.load_report_config()
-    cfg["security_mode"] = SECURITY_MODE
-    cfg["api_token"] = API_TOKEN[:4] + "****" if API_TOKEN else ""
+    mode, token = get_effective_security()
+    cfg["security_mode"] = mode
+    cfg["api_token"] = token[:4] + "****" if token else ""
     return cfg
 
 @app.post("/api/config")
@@ -471,10 +490,11 @@ def get_scan_status(scan_id: str):
 # ── WebSocket for live progress ──────────────────────────────────────────
 @app.websocket("/ws/scan/{scan_id}")
 async def ws_scan(ws: WebSocket, scan_id: str):
-    if SECURITY_MODE == "public":
+    mode, token = get_effective_security()
+    if mode == "public":
         # Vérifier le token dans les query params WS (le header Authorization n'est pas supporté par WebSocket)
-        token = ws.query_params.get("token", "")
-        if token != API_TOKEN:
+        ws_token = ws.query_params.get("token", "")
+        if ws_token != token:
             await ws.close(code=4001, reason="Authentification requise")
             return
     await ws.accept()
