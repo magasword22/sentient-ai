@@ -427,6 +427,15 @@ textarea.input{resize:vertical;min-height:60px;font-family:var(--font-mono);font
         </div>
         <button class="btn btn-secondary btn-full" style="margin-bottom:20px;" onclick="saveLLMConfig()">Sauvegarder IA & Alertes</button>
 
+        <div class="section-title">📡 Sondes de Scan Distantes</div>
+        <div id="probes-list" style="margin-bottom:12px;"></div>
+        <div class="grid-3">
+          <div class="form-group"><label>Nom</label><input class="input" id="probe-name" placeholder="VPS Paris"></div>
+          <div class="form-group"><label>URL</label><input class="input" id="probe-url" placeholder="http://vps-ip:8502"></div>
+          <div class="form-group"><label>Token</label><input class="input" id="probe-token" placeholder="sentient_secure_token_2026"></div>
+        </div>
+        <button class="btn btn-secondary btn-full" style="margin-bottom:20px;" onclick="addProbe()">Ajouter la sonde</button>
+
         <div class="section-title">👥 Gestion des utilisateurs</div>
         <div id="users-list" style="margin-bottom:12px;"></div>
         <div class="grid-2">
@@ -507,7 +516,8 @@ async function launchScan(){
     evasion_decoy:document.getElementById('scan-evadecoy')?.value||'',
     evasion_mac:document.getElementById('scan-evamac')?.value||'',
     auth_cookies:document.getElementById('scan-auth-cookies')?.value||'',
-    report_lang:document.getElementById('scan-lang')?.value||'Français'
+    report_lang:document.getElementById('scan-lang')?.value||'Français',
+    probe_url:document.getElementById('scan-probe')?.value||''
   };
   try{
     const r=await fetch(API+'/api/scan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
@@ -644,7 +654,9 @@ async function sendChat(){
 }
 
 // ── Probes ──────────────────────────────────────────────────────────────
-async function loadProbes(){try{const c=await fetch(API+'/api/config').then(r=>r.json());const probes=c.remote_probes||[];const sel=document.getElementById('scan-probe');sel.innerHTML='<option value="">Local (Serveur principal)</option>'+probes.map(p=>'<option value="'+p.url+'">'+p.name+' ('+p.url+')</option>').join('')}catch(e){}}
+async function loadProbes(){try{const c=await fetch(API+'/api/config').then(r=>r.json());const probes=c.remote_probes||[];const sel=document.getElementById('scan-probe');sel.innerHTML='<option value="">Local (Serveur principal)</option>'+probes.map(p=>'<option value="'+p.url+'">'+p.name+' ('+p.url+')</option>').join('');document.getElementById('probes-list').innerHTML=probes.length===0?'<div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:8px;">Aucune sonde enregistrée</div>':probes.map(p=>'<div class="glass-panel" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-size:0.8rem;"><span>📡 '+p.name+' — '+p.url+'</span><button class="btn btn-danger btn-sm" onclick="deleteProbe(\''+p.name+'\')">🗑</button></div>').join('')}catch(e){}}
+async function addProbe(){const n=document.getElementById('probe-name').value,u=document.getElementById('probe-url').value,t=document.getElementById('probe-token').value;if(!n||!u)return;await fetch(API+'/api/probes?name='+encodeURIComponent(n)+'&url='+encodeURIComponent(u)+'&token='+encodeURIComponent(t),{method:'POST'});toast('Sonde ajoutée','success');document.getElementById('probe-name').value='';document.getElementById('probe-url').value='';loadProbes()}
+async function deleteProbe(name){await fetch(API+'/api/probes/'+encodeURIComponent(name),{method:'DELETE'});loadProbes()}
 
 // ── Keyboard shortcuts ─────────────────────────────────────────────────
 document.getElementById('login-pass').addEventListener('keydown',e=>{if(e.key=='Enter')login()});

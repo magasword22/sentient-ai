@@ -71,6 +71,7 @@ class ScanRequest(pydantic.BaseModel):
     use_gobuster: bool = False
     report_lang: str = "Français"
     demo_mode: bool = False
+    probe_url: str = ""  # URL de la sonde distante (ex: http://vps-ip:8502)
 
 class ConfigUpdate(pydantic.BaseModel):
     company_name: Optional[str] = None
@@ -258,38 +259,81 @@ def start_scan(req: ScanRequest):
                 state["steps"][-1]["status"] = "done"
                 state["steps"][-1]["detail"] = f"{len(vulns)} failles (simulées)"
             else:
-                # Recon
-                if req.use_subfinder or req.use_gobuster:
-                    recon = run_recon_pipeline(req.target, run_subfinder=req.use_subfinder, run_gobuster=req.use_gobuster)
+                # ── Remote probe ──────────────────────────────────────────
+                if req.probe_url:
+                    state["steps"].append({"name": "Scan distant via sonde", "status": "running"})
+                    try:
+                        import requests as http_req
+                        # Get probe auth token from config
+                        probes = report_config.load_report_config().get("remote_probes", [])
+                        token = ""
+                        for p in probes:
+                            if p.get("url", "") == req.probe_url:
+                                token = p.get("token", "")
+                                break
+                        resp = http_req.post(
+                            req.probe_url,
+                            json={
+                                "target": req.target,
+                                "nmap_mode": "agressif" if req.use_agressive else ("full" if req.nmap_mode == "Full" else "standard"),
+                                "nuclei_tags": req.nuclei_tags,
+                                "sast": req.use_sast,
+                                "trivy": req.use_trivy,
+                            },
+                            headers={"Authorization": f"Bearer {token}"},
+                            timeout=300
+                        )
+                        if resp.status_code == 200:
+                            vulns = resp.json()
+                            hosts = list(set([v.get("host", req.target) for v in vulns])) or [req.target]
+                            state["steps"][-1]["status"] = "done"
+                            state["steps"][-1]["detail"] = f"{len(vulns)} failles via sonde"
+                        else:
+                            state["steps"][-1]["status"] = "done"
+                            state["steps"][-1]["detail"] = f"Erreur sonde: {resp.status_code}"
+                            vulns = []
+                            hosts = [req.target]
+                    except Exception as e:
+                        state["steps"][-1]["status"] = "done"
+                        state["steps"][-1]["detail"] = f"Sonde injoignable: {e}"
+                        vulns = []
+                        hosts = [req.target]
+                    state["progress"] = 55
 
-                # Evasion opts
-                ev_opts = {
-                    "fragment": req.evasion_fragment,
-                    "decoy": req.evasion_decoy or None,
-                    "spoof_mac": req.evasion_mac or None,
-                }
-                hosts = discover_active_hosts(
-                    req.target, req.nmap_mode,
-                    use_agressive=req.use_agressive,
-                    use_vuln_script=req.use_vuln_script,
-                    evasion_options=ev_opts
-                )
-                if not hosts:
-                    state["status"] = "error"
-                    state["error"] = "Aucun hôte actif détecté"
-                    active_scans[scan_id] = state
-                    return
-                state["steps"][-1]["status"] = "done"
-                state["steps"][-1]["detail"] = f"{len(hosts)} hôte(s)"
-                state["progress"] = 30
+                # ── Local scan ────────────────────────────────────────────
+                else:
+                    # Recon
+                    if req.use_subfinder or req.use_gobuster:
+                        recon = run_recon_pipeline(req.target, run_subfinder=req.use_subfinder, run_gobuster=req.use_gobuster)
 
-                # Step 2: Nuclei
-                state["steps"].append({"name": "Scan vulnérabilités", "status": "running"})
-                tags = req.nuclei_tags or None
-                vulns = scan_nuclei(hosts, selected_tags=tags)
-                state["steps"][-1]["status"] = "done"
-                state["steps"][-1]["detail"] = f"{len(vulns)} failles"
-                state["progress"] = 55
+                    # Evasion opts
+                    ev_opts = {
+                        "fragment": req.evasion_fragment,
+                        "decoy": req.evasion_decoy or None,
+                        "spoof_mac": req.evasion_mac or None,
+                    }
+                    hosts = discover_active_hosts(
+                        req.target, req.nmap_mode,
+                        use_agressive=req.use_agressive,
+                        use_vuln_script=req.use_vuln_script,
+                        evasion_options=ev_opts
+                    )
+                    if not hosts:
+                        state["status"] = "error"
+                        state["error"] = "Aucun hôte actif détecté"
+                        active_scans[scan_id] = state
+                        return
+                    state["steps"][-1]["status"] = "done"
+                    state["steps"][-1]["detail"] = f"{len(hosts)} hôte(s)"
+                    state["progress"] = 30
+
+                    # Step 2: Nuclei
+                    state["steps"].append({"name": "Scan vulnérabilités", "status": "running"})
+                    tags = req.nuclei_tags or None
+                    vulns = scan_nuclei(hosts, selected_tags=tags)
+                    state["steps"][-1]["status"] = "done"
+                    state["steps"][-1]["detail"] = f"{len(vulns)} failles"
+                    state["progress"] = 55
 
             # SAST
             if req.use_sast:
@@ -370,11 +414,28 @@ async def ws_scan(ws: WebSocket, scan_id: str):
                 last_progress = state.get("progress", 0)
                 if state.get("status") in ("done", "error"):
                     break
-            await asyncio.sleep(0.5)  # implicit import
+            await asyncio.sleep(0.5)
         except WebSocketDisconnect:
             break
 
-import asyncio  # for ws sleep
+import asyncio
+
+# ── Probes management ─────────────────────────────────────────────────────
+@app.post("/api/probes")
+def add_probe(name: str, url: str, token: str = "sentient_secure_token_2026"):
+    cfg = report_config.load_report_config()
+    probes = cfg.get("remote_probes", [])
+    probes.append({"name": name, "url": url, "token": token})
+    cfg["remote_probes"] = probes
+    report_config.save_report_config(**cfg)
+    return {"status": "ok"}
+
+@app.delete("/api/probes/{name}")
+def delete_probe(name: str):
+    cfg = report_config.load_report_config()
+    cfg["remote_probes"] = [p for p in cfg.get("remote_probes", []) if p.get("name") != name]
+    report_config.save_report_config(**cfg)
+    return {"status": "ok"}
 
 # ── Users ────────────────────────────────────────────────────────────────
 @app.get("/api/users")
