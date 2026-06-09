@@ -154,11 +154,11 @@ class BenchmarkRequest(pydantic.BaseModel):
 @app.post("/api/benchmark")
 def run_benchmark(req: BenchmarkRequest):
     """Test de vitesse de l'IA locale (tokens/seconde)."""
-    import time, requests as req
+    import time, requests
     start = time.time()
     try:
         ollama_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-        r = req.post(f"{ollama_url}/api/generate", json={"model": req.model, "prompt": req.prompt, "stream": False}, timeout=120)
+        r = requests.post(f"{ollama_url}/api/generate", json={"model": req.model, "prompt": req.prompt, "stream": False}, timeout=120)
         elapsed = time.time() - start
         if r.status_code == 200:
             d = r.json()
