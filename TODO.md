@@ -109,10 +109,18 @@
 - [ ] **Intégration Metasploit** : lancement de modules MSF depuis l'interface
 
 ### ☁️ Cloud & Enterprise
-- [ ] **Cartographie AD** : BloodHound-like, chemins d'attaque Active Directory
-- [ ] **Audit Cloud IAM** : AWS, GCP, Azure — politiques, clés inactives
+- [ ] **Audit Active Directory avancé** — PingCastle/PurpleKnight-like : analyse des chemins d'attaque, délégations dangereuses, comptes à risque, mauvaises configurations GPO, niveau de maturité AD
+- [ ] **Cartographie des permissions AD** : arbre visuel des groupes, ACLs, AdminSDHolder, comptes Kerberoastables/ASREProastables
+- [ ] **Audit Cloud IAM** : AWS, GCP, Azure — politiques, clés inactives, rôles privilégiés
 - [ ] **Terraform / Ansible** : provisionnement automatique de sondes
 - [ ] **Helm Chart** : déploiement Kubernetes
+
+### 🔎 Scan de Données Sensibles
+- [ ] **Scanner de fichiers** : détection de secrets dans les partages réseau et dossiers locaux — mots de passe en clair, fichiers `.env`, `id_rsa`, tokens, certificats
+- [ ] **Détection de données personnelles** : RIB/IBAN, cartes bancaires, numéros de sécu, pièces d'identité numérisées, emails, adresses postales
+- [ ] **Scan de partages SMB/NFS** : exploration automatisée des partages réseau accessibles, permissions faibles
+- [ ] **Classification automatique** : scoring de criticité des fichiers exposés, rapport de conformité RGPD
+- [ ] **Intégration au pipeline PrivEsc** : exploiter les secrets trouvés pour l'élévation de privilèges
 
 ### 🕵️ Threat Intelligence
 - [ ] **Intégration CISA KEV** : catalogue des vulnérabilités activement exploitées
