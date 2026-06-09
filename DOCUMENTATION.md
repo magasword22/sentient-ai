@@ -348,21 +348,60 @@ Dans **Configuration** :
 ## 12. Sécurité
 
 ### Secrets
-- Les clés API et mots de passe sont chiffrés localement et ne quittent jamais la machine
-- Les données d'audit sont stockées en local uniquement
+- Les clés API et mots de passe sont stockées localement, jamais exposées
+- Les données d'audit restent sur la machine
 - Aucune télémétrie ou donnée n'est envoyée à des tiers
-- Les clés API ne sont jamais loggées ni exposées dans les rapports
-
-### Réseau
-- Port 8501 : interface web (ouvert par défaut)
-- Port 8502 : sonde distante (à ouvrir manuellement si distant)
-- Port 11434 : Ollama (localhost uniquement)
-- Port 22 : SSH (pour audit PrivEsc)
+- Les secrets ne sont jamais loggés ni inclus dans les rapports
 
 ### Authentification
-- Session locale SQLite
+- PBKDF2-HMAC-SHA256 (100 000 itérations + salt) pour les mots de passe
 - Rôles : admin (full), client (lecture)
-- Mots de passe hashés
+- Rate limiting : 20 requêtes/seconde par IP
+
+### Réseau
+- Port 8501 : interface web
+- Port 8502 : sonde distante
+- Port 11434 : Ollama (localhost uniquement)
+- Port 22 : SSH (audit PrivEsc)
+
+---
+
+### 🛡️ Mode Sécurité Renforcée (Exposition Internet)
+
+Sentient AI fonctionne en **mode local** par défaut — aucune authentification API n'est requise. Pour une exposition sur Internet, activez le **mode public** :
+
+```bash
+SECURITY_MODE=public \
+API_TOKEN=votre_token_secret_unique \
+SSL_CERT=/etc/letsencrypt/live/sentient.example.com/fullchain.pem \
+SSL_KEY=/etc/letsencrypt/live/sentient.example.com/privkey.pem \
+uvicorn api:app --host 0.0.0.0 --port 443
+```
+
+#### Variables d'environnement
+| Variable | Valeur | Obligatoire |
+|---|---|---|
+| `SECURITY_MODE` | `local` (défaut) ou `public` | Non |
+| `API_TOKEN` | Token secret pour l'auth API | Oui si `public` |
+| `SSL_CERT` | Chemin fullchain.pem Let's Encrypt | Non |
+| `SSL_KEY` | Chemin privkey.pem Let's Encrypt | Non |
+
+#### Protections activées en mode public
+| Protection | Description | Testé |
+|---|---|---|
+| **Auth Bearer token** | Token obligatoire sur toutes les routes `/api/` (sauf login) | ✅ 401 sans, 200 avec |
+| **WebSocket auth** | Token requis via `?token=` dans l'URL WS | ✅ |
+| **CSP** | `default-src 'self'` — bloque les scripts externes | ✅ |
+| **HSTS** | `max-age=31536000; includeSubDomains; preload` | ✅ |
+| **X-Frame-Options** | `DENY` — anti-clickjacking | ✅ |
+| **X-Content-Type-Options** | `nosniff` — anti-MIME sniffing | ✅ |
+| **Referrer-Policy** | `strict-origin-when-cross-origin` | ✅ |
+| **Permissions-Policy** | Camera/micro/géolocalisation désactivés | ✅ |
+| **HTTPS** | SSL/TLS natif via uvicorn | ✅ |
+| **Rate limiting** | 20 req/sec/IP (actif dans les deux modes) | ✅ |
+
+#### Authentification frontend
+Le token est automatiquement ajouté à toutes les requêtes `fetch()` via le wrapper `sfetch()`. Si le serveur répond 401, l'interface se recharge automatiquement pour demander le token.
 
 ---
 
