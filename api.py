@@ -65,7 +65,33 @@ async def rate_limit_middleware(request, call_next):
     _rate_store[ip] = window
     return await call_next(request)
 
-# ── Scan state (in-memory, survives between requests) ────────────────────
+# ── Security mode ────────────────────────────────────────────────────────
+SECURITY_MODE = os.environ.get("SECURITY_MODE", "local")  # "local" | "public"
+API_TOKEN = os.environ.get("API_TOKEN", "")  # Required when SECURITY_MODE=public
+
+@app.middleware("http")
+async def security_headers_middleware(request, call_next):
+    """Ajoute les en-têtes de sécurité HTTP."""
+    response = await call_next(request)
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    if SECURITY_MODE == "public":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+        response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' ws: wss:;"
+    return response
+
+@app.middleware("http")
+async def api_auth_middleware(request, call_next):
+    """En mode public, vérifie le token Bearer sur toutes les routes /api/ (sauf login)."""
+    if SECURITY_MODE == "public" and request.url.path.startswith("/api/") and request.url.path != "/api/auth/login":
+        auth = request.headers.get("Authorization", "")
+        if not auth or auth != f"Bearer {API_TOKEN}":
+            return JSONResponse({"detail": "Authentification requise — mode public activé"}, status_code=401)
+    return await call_next(request)
+
+# ── Scan state ───────────────────────────────────────────────────────────
 active_scans: dict[str, dict] = {}  # scan_id → {status, progress, result}
 
 # ── Pydantic models ──────────────────────────────────────────────────────
@@ -123,7 +149,10 @@ def login(req: LoginRequest):
 # ── Config ───────────────────────────────────────────────────────────────
 @app.get("/api/config")
 def get_config():
-    return report_config.load_report_config()
+    cfg = report_config.load_report_config()
+    cfg["security_mode"] = SECURITY_MODE
+    cfg["api_token"] = API_TOKEN[:4] + "****" if API_TOKEN else ""
+    return cfg
 
 @app.post("/api/config")
 def update_config(cfg: ConfigUpdate):
@@ -442,6 +471,12 @@ def get_scan_status(scan_id: str):
 # ── WebSocket for live progress ──────────────────────────────────────────
 @app.websocket("/ws/scan/{scan_id}")
 async def ws_scan(ws: WebSocket, scan_id: str):
+    if SECURITY_MODE == "public":
+        # Vérifier le token dans les query params WS (le header Authorization n'est pas supporté par WebSocket)
+        token = ws.query_params.get("token", "")
+        if token != API_TOKEN:
+            await ws.close(code=4001, reason="Authentification requise")
+            return
     await ws.accept()
     last_progress = -1
     while True:
@@ -658,4 +693,11 @@ async def serve_spa(path: str = ""):
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8501))
-    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
+    ssl_cert = os.environ.get("SSL_CERT", "")   # Chemin vers fullchain.pem
+    ssl_key = os.environ.get("SSL_KEY", "")      # Chemin vers privkey.pem
+    ssl_kwargs = {}
+    if ssl_cert and ssl_key and os.path.exists(ssl_cert) and os.path.exists(ssl_key):
+        ssl_kwargs = {"ssl_certfile": ssl_cert, "ssl_keyfile": ssl_key}
+        print(f"[SECURITY] HTTPS activé avec {ssl_cert}")
+    print(f"[SECURITY] Mode: {SECURITY_MODE} {'— token auth actif' if SECURITY_MODE == 'public' else '— pas d authentification API'}")
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info", **ssl_kwargs)

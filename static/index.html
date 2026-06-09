@@ -473,7 +473,16 @@ textarea.input{resize:vertical;min-height:60px;font-family:var(--font-mono);font
    SENTIENT AI v3 — SPA Logic (Vanilla JS)
    ═══════════════════════════════════════════════════════════════════════════ */
 const API='';
-let _activeScanId=null,_ws=null;
+let _activeScanId=null,_ws=null,_apiToken=localStorage.getItem('sentient_token')||'';
+
+// ── Secure fetch wrapper ────────────────────────────────────────────────
+async function sfetch(url,opts={}){
+  const headers={'Content-Type':'application/json',...opts.headers};
+  if(_apiToken)headers['Authorization']='Bearer '+_apiToken;
+  const res=await sfetch(API+url,{...opts,headers});
+  if(res.status===401){localStorage.removeItem('sentient_token');_apiToken='';location.reload()}
+  return res
+}
 
 // ── Particles ──────────────────────────────────────────────────────────
 (function(){const c=document.getElementById('particles'),ctx=c.getContext('2d');let w,h,ps=[];function R(){w=c.width=innerWidth;h=c.height=innerHeight}R();addEventListener('resize',R);class P{constructor(){this.r()}r(){this.x=Math.random()*w;this.y=Math.random()*h;this.vx=(Math.random()-0.5)*0.3;this.vy=(Math.random()-0.5)*0.3;this.s=Math.random()*1.5+0.5;this.o=Math.random()*0.3+0.05}upd(){this.x+=this.vx;this.y+=this.vy;if(this.x<0||this.x>w)this.vx*=-1;if(this.y<0||this.y>h)this.vy*=-1}d(){ctx.beginPath();ctx.arc(this.x,this.y,this.s,0,Math.PI*2);ctx.fillStyle='#7c3aed';ctx.globalAlpha=this.o;ctx.fill();ctx.globalAlpha=1;for(let j=0;j<ps.length;j++){const p=ps[j],dx=this.x-p.x,dy=this.y-p.y,dist=Math.sqrt(dx*dx+dy*dy);if(dist<120){ctx.beginPath();ctx.moveTo(this.x,this.y);ctx.lineTo(p.x,p.y);ctx.strokeStyle='#7c3aed';ctx.globalAlpha=0.04*(1-dist/120);ctx.lineWidth=0.5;ctx.stroke();ctx.globalAlpha=1}}}}for(let i=0;i<45;i++)ps.push(new P());function A(){ctx.clearRect(0,0,w,h);ps.forEach(p=>{p.upd();p.d()});requestAnimationFrame(A)}A()})();
@@ -500,14 +509,14 @@ function toggleExpander(id){document.getElementById(id).classList.toggle('open')
 // ── Auth ───────────────────────────────────────────────────────────────
 async function login(){
   const u=document.getElementById('login-user').value,p=document.getElementById('login-pass').value;
-  const r=await fetch(API+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+  const r=await sfetch(API+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
   if(r.ok){document.getElementById('login-page').style.display='none';document.getElementById('app').style.display='flex';document.getElementById('nav-user').textContent=u;loadDashboard()}
   else{const e=document.getElementById('login-err');e.style.display='block';e.textContent='Identifiants invalides'}}
 function logout(){document.getElementById('app').style.display='none';document.getElementById('login-page').style.display='flex';document.getElementById('login-user').value='';document.getElementById('login-pass').value=''}
 
 // ── Dashboard ──────────────────────────────────────────────────────────
 async function loadDashboard(){
-  try{const h=await fetch(API+'/api/history').then(r=>r.json());const s=h.length,ho=h.reduce((a,e)=>a+(e.hosts_found||0),0),v=h.reduce((a,e)=>a+(e.vulnerabilities_found||0),0),c=Math.floor(v*0.05),sc=v===0?'A':c===0?'B':c<3?'C-':'F';
+  try{const h=await sfetch(API+'/api/history').then(r=>r.json());const s=h.length,ho=h.reduce((a,e)=>a+(e.hosts_found||0),0),v=h.reduce((a,e)=>a+(e.vulnerabilities_found||0),0),c=Math.floor(v*0.05),sc=v===0?'A':c===0?'B':c<3?'C-':'F';
   document.getElementById('kpi-scans').textContent=s;document.getElementById('kpi-hosts').textContent=ho;document.getElementById('kpi-vulns').textContent=v;document.getElementById('kpi-score').textContent=sc;
   const rc=document.getElementById('recent-scans');
   rc.innerHTML=h.length===0?'<div class="empty-state"><div class="empty-state-icon">🔍</div><div class="empty-state-title">Aucun scan</div><div class="empty-state-desc">Lancez votre premier audit depuis l\'onglet Scan.</div></div>':h.slice(0,8).map(e=>'<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);"><div><strong>'+e.target+'</strong><br><span style="font-size:0.75rem;color:var(--text-muted);">'+(e.date||'')+'</span></div><div style="text-align:right;"><span style="font-size:0.8rem;">🖥️ '+(e.hosts_found||0)+'</span><span style="font-size:0.8rem;margin-left:12px;">🎯 '+(e.vulnerabilities_found||0)+'</span></div></div>').join('')}catch(e){toast('Erreur dashboard','error')}}
@@ -540,13 +549,13 @@ async function launchScan(){
     probe_url:document.getElementById('scan-probe')?.value||''
   };
   try{
-    const r=await fetch(API+'/api/scan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const r=await sfetch(API+'/api/scan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const {scan_id}=await r.json();_activeScanId=scan_id;
     document.getElementById('scan-form-card').style.display='none';
     document.getElementById('scan-progress').style.display='block';
     initStepper();
     const proto=location.protocol==='https:'?'wss':'ws';
-    _ws=new WebSocket(proto+'://'+location.host+'/ws/scan/'+scan_id);
+    _ws=new WebSocket(proto+"://"+location.host+"/ws/scan/"+scan_id+(_apiToken?"?token="+_apiToken:""))'://'+location.host+'/ws/scan/'+scan_id);
     _ws.onmessage=(e)=>{const d=JSON.parse(e.data);updateStepper(d.steps||[]);const p=d.progress;
       // Smooth fake-easing: jumps feel faster
       const displayP = p<10?p*2:p<50?p+5:p<80?Math.min(95,p+3):p;
@@ -571,7 +580,7 @@ async function launchPrivEsc(){
   if(!body.host||!body.username){toast('IP et utilisateur requis','error');return}
   document.getElementById('privesc-result').innerHTML='<div class="glass-card"><div class="spinner"></div> Audit système en cours...</div>';
   try{
-    const r=await fetch(API+'/api/privesc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const r=await sfetch(API+'/api/privesc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const d=await r.json();
     document.getElementById('privesc-result').innerHTML='<div class="glass-card"><h3>✅ Résultat</h3><pre style="white-space:pre-wrap;max-height:400px;overflow-y:auto;">'+JSON.stringify(d,null,2)+'</pre></div>'
   }catch(e){toast('Erreur: '+e.message,'error')}}
@@ -582,14 +591,14 @@ async function generatePoC(){
   if(!cve){toast('CVE requis','error');return}
   document.getElementById('poc-result').innerHTML='<div class="glass-card"><div class="spinner"></div> Génération en cours via l\'IA...</div>';
   try{
-    const r=await fetch(API+'/api/poc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cve_id:cve})});
+    const r=await sfetch(API+'/api/poc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cve_id:cve})});
     const d=await r.json();
     document.getElementById('poc-result').innerHTML='<div class="glass-card"><h3>🧪 '+cve+'</h3><pre style="white-space:pre-wrap;max-height:400px;overflow-y:auto;">'+(d.result||d.poc||JSON.stringify(d,null,2))+'</pre></div>'
   }catch(e){toast('Erreur: '+e.message,'error')}}
 
 // ── ROI ────────────────────────────────────────────────────────────────
 async function loadROI(){
-  try{const d=await fetch(API+'/api/roi').then(r=>r.json());
+  try{const d=await sfetch(API+'/api/roi').then(r=>r.json());
   const m=d.applied_multipliers||{};
   document.getElementById('roi-content').innerHTML=
     '<div class="kpi-grid">'+
@@ -602,21 +611,21 @@ async function loadROI(){
   }catch(e){document.getElementById('roi-content').innerHTML='<div class="empty-state"><div class="empty-state-icon">💰</div><div class="empty-state-title">Données ROI indisponibles</div></div>'}}
 
 // ── Schedules ──────────────────────────────────────────────────────────
-async function addSchedule(){const t=document.getElementById('sched-target').value,f=document.getElementById('sched-freq').value;if(!t)return;await fetch(API+'/api/schedules?target='+t+'&frequency='+f+'&nmap_mode=T4&report_lang=Français',{method:'POST'});toast('Planification ajoutée','success');loadSchedules()}
-async function loadSchedules(){try{const s=await fetch(API+'/api/schedules').then(r=>r.json());document.getElementById('sched-list').innerHTML=s.length===0?'<div class="empty-state"><div class="empty-state-icon">📅</div><div class="empty-state-title">Aucune planification</div></div>':s.map(e=>'<div class="glass-panel" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><div><strong>'+e.target+'</strong><br><span style="font-size:0.75rem;color:var(--text-muted);">'+e.frequency+' • '+e.next_run+'</span></div><button class="btn btn-danger btn-sm" onclick="deleteSchedule('+e.id+')">🗑</button></div>').join('')}catch(e){}}
-async function deleteSchedule(id){await fetch(API+'/api/schedules/'+id,{method:'DELETE'});loadSchedules()}
+async function addSchedule(){const t=document.getElementById('sched-target').value,f=document.getElementById('sched-freq').value;if(!t)return;await sfetch(API+'/api/schedules?target='+t+'&frequency='+f+'&nmap_mode=T4&report_lang=Français',{method:'POST'});toast('Planification ajoutée','success');loadSchedules()}
+async function loadSchedules(){try{const s=await sfetch(API+'/api/schedules').then(r=>r.json());document.getElementById('sched-list').innerHTML=s.length===0?'<div class="empty-state"><div class="empty-state-icon">📅</div><div class="empty-state-title">Aucune planification</div></div>':s.map(e=>'<div class="glass-panel" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><div><strong>'+e.target+'</strong><br><span style="font-size:0.75rem;color:var(--text-muted);">'+e.frequency+' • '+e.next_run+'</span></div><button class="btn btn-danger btn-sm" onclick="deleteSchedule('+e.id+')">🗑</button></div>').join('')}catch(e){}}
+async function deleteSchedule(id){await sfetch(API+'/api/schedules/'+id,{method:'DELETE'});loadSchedules()}
 
 // ── Reports ────────────────────────────────────────────────────────────
-async function loadReports(){try{const r=await fetch(API+'/api/reports').then(r=>r.json());const el=document.getElementById('reports-list');el.innerHTML=r.length===0?'<div class="empty-state"><div class="empty-state-icon">📂</div><div class="empty-state-title">Aucun rapport</div></div>':r.map(f=>'<div class="glass-panel" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><div><strong>📄 '+f.name+'</strong><br><span style="font-size:0.75rem;color:var(--text-muted);">'+new Date(f.date).toLocaleString()+' • '+(f.size/1024).toFixed(0)+' KB</span></div><a class="btn btn-primary btn-sm" href="/api/reports/'+f.name+'" download>📥</a></div>').join('')}catch(e){}}
+async function loadReports(){try{const r=await sfetch(API+'/api/reports').then(r=>r.json());const el=document.getElementById('reports-list');el.innerHTML=r.length===0?'<div class="empty-state"><div class="empty-state-icon">📂</div><div class="empty-state-title">Aucun rapport</div></div>':r.map(f=>'<div class="glass-panel" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><div><strong>📄 '+f.name+'</strong><br><span style="font-size:0.75rem;color:var(--text-muted);">'+new Date(f.date).toLocaleString()+' • '+(f.size/1024).toFixed(0)+' KB</span></div><a class="btn btn-primary btn-sm" href="/api/reports/'+f.name+'" download>📥</a></div>').join('')}catch(e){}}
 
 // ── RAG ────────────────────────────────────────────────────────────────
-async function uploadRag(){const f=document.getElementById('rag-file').files[0];if(!f)return;const fd=new FormData();fd.append('file',f);await fetch(API+'/api/rag/upload',{method:'POST',body:fd});toast(f.name+' uploadé','success');loadRagDocs()}
-async function loadRagDocs(){try{const d=await fetch(API+'/api/rag/documents').then(r=>r.json());const el=document.getElementById('rag-list');el.innerHTML=(d||[]).length===0?'<div class="empty-state"><div class="empty-state-icon">🧠</div><div class="empty-state-title">Aucun document indexé</div><div class="empty-state-desc">Téléversez vos propres documents ou activez les standards de sécurité intégrés.</div></div>':d.map(f=>'<div class="glass-panel" style="margin-bottom:6px;">📄 '+f+'</div>').join('')}catch(e){}}
-async function activateStandards(){const btn=document.getElementById('rag-activate-btn');btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Activation...';try{const r=await fetch(API+'/api/rag/activate',{method:'POST'});const d=await r.json();toast(d.ingested+'/'+d.total+' standards activés !','success');btn.textContent='✅ Standards activés'}catch(e){toast('Erreur activation','error');btn.disabled=false;btn.textContent='🧠 Activer les standards'}}
+async function uploadRag(){const f=document.getElementById('rag-file').files[0];if(!f)return;const fd=new FormData();fd.append('file',f);await sfetch(API+'/api/rag/upload',{method:'POST',body:fd});toast(f.name+' uploadé','success');loadRagDocs()}
+async function loadRagDocs(){try{const d=await sfetch(API+'/api/rag/documents').then(r=>r.json());const el=document.getElementById('rag-list');el.innerHTML=(d||[]).length===0?'<div class="empty-state"><div class="empty-state-icon">🧠</div><div class="empty-state-title">Aucun document indexé</div><div class="empty-state-desc">Téléversez vos propres documents ou activez les standards de sécurité intégrés.</div></div>':d.map(f=>'<div class="glass-panel" style="margin-bottom:6px;">📄 '+f+'</div>').join('')}catch(e){}}
+async function activateStandards(){const btn=document.getElementById('rag-activate-btn');btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Activation...';try{const r=await sfetch(API+'/api/rag/activate',{method:'POST'});const d=await r.json();toast(d.ingested+'/'+d.total+' standards activés !','success');btn.textContent='✅ Standards activés'}catch(e){toast('Erreur activation','error');btn.disabled=false;btn.textContent='🧠 Activer les standards'}}
 
 // ── Telemetry ──────────────────────────────────────────────────────────
 function bar(val,pct){return '<div class="progress-bar" style="margin:4px 0;"><div class="progress-fill" style="width:'+Math.min(pct,100)+'%;'+(pct>90?'background:var(--error)':'')+'"></div></div>'}
-async function loadTelemetry(){try{const t=await fetch(API+'/api/telemetry').then(r=>r.json());const g=t.gpu||{};const models=t.ollama_models||[];document.getElementById('tel-content').innerHTML=
+async function loadTelemetry(){try{const t=await sfetch(API+'/api/telemetry').then(r=>r.json());const g=t.gpu||{};const models=t.ollama_models||[];document.getElementById('tel-content').innerHTML=
   '<div class="section-title">🖥️ Processeur (CPU) — '+t.cpu_count+' cœurs</div>'+bar(0,t.cpu_pct)+'<div style="text-align:right;font-size:0.8rem;color:var(--text-muted);margin-bottom:16px;">Charge : <b>'+(t.cpu_pct||0).toFixed(1)+'%</b></div>'+
   '<div class="section-title">🧠 Mémoire (RAM)</div>'+bar(0,t.ram_pct)+'<div style="text-align:right;font-size:0.8rem;color:var(--text-muted);margin-bottom:16px;">'+(t.ram_used_gb||0).toFixed(1)+' / '+(t.ram_total_gb||0).toFixed(1)+' GB (<b>'+(t.ram_pct||0).toFixed(1)+'%</b>)</div>'+
   (g.available?
@@ -636,7 +645,7 @@ async function runBenchmark(){
   const btn=document.getElementById('bm-btn');btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Test...';
   document.getElementById('bm-result').innerHTML='';
   try{
-    const r=await fetch(API+'/api/benchmark',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:m,prompt:p})});
+    const r=await sfetch(API+'/api/benchmark',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:m,prompt:p})});
     const d=await r.json();
     if(d.status==='ok'){
       let perf='',pfClass='';
@@ -654,12 +663,12 @@ async function runBenchmark(){
 }
 
 // ── Config ─────────────────────────────────────────────────────────────
-async function loadConfig(){try{const c=await fetch(API+'/api/config').then(r=>r.json());document.getElementById('cfg-company').value=c.company_name||'';document.getElementById('cfg-footer').value=c.footer_text||'';document.getElementById('cfg-color').value=c.primary_color||'#7c3aed';document.getElementById('cfg-theme').value=c.theme||'Slate/Zinc';document.getElementById('cfg-llm-provider').value=c.llm_provider||'Ollama';document.getElementById('cfg-llm-model').value=c.llm_model||'llama3.1:8b';document.getElementById('cfg-openai-key').value=c.openai_api_key||'';document.getElementById('cfg-anthropic-key').value=c.anthropic_api_key||'';document.getElementById('cfg-groq-key').value=c.groq_api_key||'';document.getElementById('cfg-webhook-provider').value=c.webhook_provider||'Generic';document.getElementById('cfg-webhook-url').value=c.webhook_url||'';loadUsers()}catch(e){}}
-async function saveConfig(){const body={company_name:document.getElementById('cfg-company').value,footer_text:document.getElementById('cfg-footer').value,primary_color:document.getElementById('cfg-color').value,theme:document.getElementById('cfg-theme').value};await fetch(API+'/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});toast('Style sauvegardé','success')}
-async function saveLLMConfig(){const body={llm_provider:document.getElementById('cfg-llm-provider').value,llm_model:document.getElementById('cfg-llm-model').value,openai_api_key:document.getElementById('cfg-openai-key').value,anthropic_api_key:document.getElementById('cfg-anthropic-key').value,groq_api_key:document.getElementById('cfg-groq-key').value,deepseek_api_key:document.getElementById('cfg-deepseek-key').value,mistral_api_key:document.getElementById('cfg-mistral-key').value,webhook_provider:document.getElementById('cfg-webhook-provider').value,webhook_url:document.getElementById('cfg-webhook-url').value};await fetch(API+'/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});toast('IA & alertes sauvegardées','success')}
-async function loadUsers(){try{const u=await fetch(API+'/api/users').then(r=>r.json());document.getElementById('users-list').innerHTML=(u||[]).map(x=>'<div class="glass-panel" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-size:0.85rem;"><span>👤 '+x.username+' ('+x.role+')</span><button class="btn btn-danger btn-sm" onclick="deleteUser(\''+x.username+'\')">🗑</button></div>').join('')}catch(e){}}
-async function addUser(){const u=document.getElementById('cfg-newuser').value,p=document.getElementById('cfg-newpass').value;if(!u||!p)return;await fetch(API+'/api/users?username='+u+'&password='+p,{method:'POST'});toast('Utilisateur créé','success');document.getElementById('cfg-newuser').value='';document.getElementById('cfg-newpass').value='';loadUsers()}
-async function deleteUser(u){await fetch(API+'/api/users/'+u,{method:'DELETE'});loadUsers()}
+async function loadConfig(){try{const c=await sfetch(API+'/api/config').then(r=>r.json());document.getElementById('cfg-company').value=c.company_name||'';document.getElementById('cfg-footer').value=c.footer_text||'';document.getElementById('cfg-color').value=c.primary_color||'#7c3aed';document.getElementById('cfg-theme').value=c.theme||'Slate/Zinc';document.getElementById('cfg-llm-provider').value=c.llm_provider||'Ollama';document.getElementById('cfg-llm-model').value=c.llm_model||'llama3.1:8b';document.getElementById('cfg-openai-key').value=c.openai_api_key||'';document.getElementById('cfg-anthropic-key').value=c.anthropic_api_key||'';document.getElementById('cfg-groq-key').value=c.groq_api_key||'';document.getElementById('cfg-webhook-provider').value=c.webhook_provider||'Generic';document.getElementById('cfg-webhook-url').value=c.webhook_url||'';loadUsers()}catch(e){}}
+async function saveConfig(){const body={company_name:document.getElementById('cfg-company').value,footer_text:document.getElementById('cfg-footer').value,primary_color:document.getElementById('cfg-color').value,theme:document.getElementById('cfg-theme').value};await sfetch(API+'/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});toast('Style sauvegardé','success')}
+async function saveLLMConfig(){const body={llm_provider:document.getElementById('cfg-llm-provider').value,llm_model:document.getElementById('cfg-llm-model').value,openai_api_key:document.getElementById('cfg-openai-key').value,anthropic_api_key:document.getElementById('cfg-anthropic-key').value,groq_api_key:document.getElementById('cfg-groq-key').value,deepseek_api_key:document.getElementById('cfg-deepseek-key').value,mistral_api_key:document.getElementById('cfg-mistral-key').value,webhook_provider:document.getElementById('cfg-webhook-provider').value,webhook_url:document.getElementById('cfg-webhook-url').value};await sfetch(API+'/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});toast('IA & alertes sauvegardées','success')}
+async function loadUsers(){try{const u=await sfetch(API+'/api/users').then(r=>r.json());document.getElementById('users-list').innerHTML=(u||[]).map(x=>'<div class="glass-panel" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-size:0.85rem;"><span>👤 '+x.username+' ('+x.role+')</span><button class="btn btn-danger btn-sm" onclick="deleteUser(\''+x.username+'\')">🗑</button></div>').join('')}catch(e){}}
+async function addUser(){const u=document.getElementById('cfg-newuser').value,p=document.getElementById('cfg-newpass').value;if(!u||!p)return;await sfetch(API+'/api/users?username='+u+'&password='+p,{method:'POST'});toast('Utilisateur créé','success');document.getElementById('cfg-newuser').value='';document.getElementById('cfg-newpass').value='';loadUsers()}
+async function deleteUser(u){await sfetch(API+'/api/users/'+u,{method:'DELETE'});loadUsers()}
 
 // ── Chat ────────────────────────────────────────────────────────────────
 const _chatHistory=[];
@@ -671,7 +680,7 @@ async function sendChat(){
   msgs.innerHTML+='<div class="glass-panel" id="chat-loading" style="align-self:flex-start;max-width:80%;"><div class="spinner"></div> Analyse en cours...</div>';
   msgs.scrollTop=msgs.scrollHeight;
   try{
-    const r=await fetch(API+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:q,history:_chatHistory})});
+    const r=await sfetch(API+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:q,history:_chatHistory})});
     const d=await r.json();
     document.getElementById('chat-loading')?.remove();
     msgs.innerHTML+='<div class="glass-panel" style="align-self:flex-start;max-width:80%;background:rgba(124,58,237,0.1);border-color:var(--border-accent);">'+d.response+'</div>';
@@ -682,10 +691,10 @@ async function sendChat(){
 }
 
 // ── Probes ──────────────────────────────────────────────────────────────
-async function loadProbes(){try{const c=await fetch(API+'/api/config').then(r=>r.json());const probes=c.remote_probes||[];const sel=document.getElementById('scan-probe');sel.innerHTML='<option value="">Local (Serveur principal)</option>'+probes.map(p=>'<option value="'+p.url+'">'+p.name+' ('+p.url+')</option>').join('');document.getElementById('probes-list').innerHTML=probes.length===0?'<div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:8px;">Aucune sonde enregistrée</div>':probes.map(p=>'<div class="glass-panel" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-size:0.8rem;"><span>📡 '+p.name+' — '+p.url+'</span><button class="btn btn-danger btn-sm" onclick="deleteProbe(\''+p.name+'\')">🗑</button></div>').join('')}catch(e){}}
-async function addProbe(){const n=document.getElementById('probe-name').value,u=document.getElementById('probe-url').value,t=document.getElementById('probe-token').value;if(!n||!u)return;await fetch(API+'/api/probes?name='+encodeURIComponent(n)+'&url='+encodeURIComponent(u)+'&token='+encodeURIComponent(t),{method:'POST'});toast('Sonde ajoutée','success');document.getElementById('probe-name').value='';document.getElementById('probe-url').value='';loadProbes()}
-async function deleteProbe(name){await fetch(API+'/api/probes/'+encodeURIComponent(name),{method:'DELETE'});loadProbes()}
-async function loadMonitoring(){try{const p=await fetch(API+'/api/probes/status').then(r=>r.json());const el=document.getElementById('monitor-grid');if(p.length===0){el.innerHTML='<div class="empty-state"><div class="empty-state-icon">🛰️</div><div class="empty-state-title">Aucune sonde enregistrée</div><div class="empty-state-desc">Ajoutez des sondes dans Configuration, puis déployez sentient_agent.py avec --master.</div></div>';return}el.innerHTML='<div class="kpi-grid">'+p.map(a=>'<div class="kpi-card'+(a.online?'':' critical')+'><div style="position:absolute;top:12px;right:12px;"><span class="badge '+(a.online?'badge-info':'badge-critical')+'">'+(a.online?'🟢 Online':'🔴 Offline')+'</span></div><div class="kpi-icon">📡</div><div class="kpi-title">'+a.name+'</div><div class="kpi-value" style="font-size:0.9rem;font-family:var(--font-mono);word-break:break-all;">'+a.url+'</div><div class="kpi-subtitle">'+(a.online?(a.active_scan?'🔍 Scan: '+a.scan_target:'✅ Inactif'):'⏳ Hors ligne')+'</div></div>').join('')+'</div>'}catch(e){}}
+async function loadProbes(){try{const c=await sfetch(API+'/api/config').then(r=>r.json());const probes=c.remote_probes||[];const sel=document.getElementById('scan-probe');sel.innerHTML='<option value="">Local (Serveur principal)</option>'+probes.map(p=>'<option value="'+p.url+'">'+p.name+' ('+p.url+')</option>').join('');document.getElementById('probes-list').innerHTML=probes.length===0?'<div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:8px;">Aucune sonde enregistrée</div>':probes.map(p=>'<div class="glass-panel" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-size:0.8rem;"><span>📡 '+p.name+' — '+p.url+'</span><button class="btn btn-danger btn-sm" onclick="deleteProbe(\''+p.name+'\')">🗑</button></div>').join('')}catch(e){}}
+async function addProbe(){const n=document.getElementById('probe-name').value,u=document.getElementById('probe-url').value,t=document.getElementById('probe-token').value;if(!n||!u)return;await sfetch(API+'/api/probes?name='+encodeURIComponent(n)+'&url='+encodeURIComponent(u)+'&token='+encodeURIComponent(t),{method:'POST'});toast('Sonde ajoutée','success');document.getElementById('probe-name').value='';document.getElementById('probe-url').value='';loadProbes()}
+async function deleteProbe(name){await sfetch(API+'/api/probes/'+encodeURIComponent(name),{method:'DELETE'});loadProbes()}
+async function loadMonitoring(){try{const p=await sfetch(API+'/api/probes/status').then(r=>r.json());const el=document.getElementById('monitor-grid');if(p.length===0){el.innerHTML='<div class="empty-state"><div class="empty-state-icon">🛰️</div><div class="empty-state-title">Aucune sonde enregistrée</div><div class="empty-state-desc">Ajoutez des sondes dans Configuration, puis déployez sentient_agent.py avec --master.</div></div>';return}el.innerHTML='<div class="kpi-grid">'+p.map(a=>'<div class="kpi-card'+(a.online?'':' critical')+'><div style="position:absolute;top:12px;right:12px;"><span class="badge '+(a.online?'badge-info':'badge-critical')+'">'+(a.online?'🟢 Online':'🔴 Offline')+'</span></div><div class="kpi-icon">📡</div><div class="kpi-title">'+a.name+'</div><div class="kpi-value" style="font-size:0.9rem;font-family:var(--font-mono);word-break:break-all;">'+a.url+'</div><div class="kpi-subtitle">'+(a.online?(a.active_scan?'🔍 Scan: '+a.scan_target:'✅ Inactif'):'⏳ Hors ligne')+'</div></div>').join('')+'</div>'}catch(e){}}
 
 // ── Keyboard shortcuts ─────────────────────────────────────────────────
 document.getElementById('login-pass').addEventListener('keydown',e=>{if(e.key=='Enter')login()});
