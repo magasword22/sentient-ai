@@ -237,12 +237,24 @@ def delete_schedule_endpoint(sid: int):
 @app.post("/api/scan")
 def start_scan(req: ScanRequest):
     scan_id = str(uuid.uuid4())[:8]
-    active_scans[scan_id] = {"status": "starting", "progress": 0, "steps": [], "result": None}
+    active_scans[scan_id] = {"status": "starting", "progress": 0, "steps": [], "result": None, "logs": []}
 
     def run():
+        import io
+        log_buffer = io.StringIO()
+        import builtins as _b
+        _original_print = _b.print
+        def _capture_print(*args, **kwargs):
+            msg = " ".join(str(a) for a in args)
+            log_buffer.write(msg + "\n")
+            active_scans[scan_id]["logs"].append(msg)
+            _original_print(*args, **kwargs)
+        _b.print = _capture_print
+
         try:
             state = active_scans[scan_id]
             state["status"] = "running"
+            state["logs"].append("🚀 Démarrage de l'audit...")
 
             # Step 1: Discovery
             state["steps"].append({"name": "Découverte réseau", "status": "running"})
@@ -415,6 +427,7 @@ async def ws_scan(ws: WebSocket, scan_id: str):
                     "steps": state.get("steps", []),
                     "result": state.get("result"),
                     "error": state.get("error"),
+                    "logs": state.get("logs", [])[-20:],  # 20 dernières lignes
                 })
                 last_progress = state.get("progress", 0)
                 if state.get("status") in ("done", "error"):

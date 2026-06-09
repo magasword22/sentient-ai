@@ -288,7 +288,11 @@ textarea.input{resize:vertical;min-height:60px;font-family:var(--font-mono);font
         <div class="glass-card">
           <div class="stepper" id="stepper"></div>
           <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
-          <p id="scan-status-text" style="text-align:center;color:var(--text-muted);font-size:0.85rem;"></p>
+          <p id="scan-status-text" style="text-align:center;color:var(--text-muted);font-size:0.85rem;margin:4px 0;"></p>
+          <!-- Logs panel -->
+          <div class="glass-panel" style="max-height:180px;overflow-y:auto;background:var(--bg-base);border:1px solid var(--border);border-radius:var(--radius-md);padding:8px 12px;">
+            <div id="scan-logs" style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text-secondary);line-height:1.6;white-space:pre-wrap;word-break:break-all;"></div>
+          </div>
           <div id="scan-result" style="margin-top:16px;"></div>
         </div>
       </div>
@@ -550,6 +554,8 @@ async function launchScan(){
       const msgs=['🔍 Cartographie du périmètre...','📡 Sondes réseau déployées','🎯 Détection des signatures Nuclei...','⚡ Analyse des vulnérabilités en cours','🧠 L\'IA analyse les résultats...','📊 Génération du rapport...','📄 Compilation du PDF...','✨ Finalisation...'];
       const idx=Math.min(Math.floor(p/12.5),msgs.length-1);
       document.getElementById('scan-status-text').textContent=d.status==='done'?'✅ Audit terminé':d.status==='error'?'❌ Erreur':msgs[idx];
+      // Afficher les logs réels
+      if(d.logs&&d.logs.length>0){const logEl=document.getElementById('scan-logs');logEl.textContent=d.logs.join('\n');logEl.parentElement.scrollTop=logEl.parentElement.scrollHeight}
       if(d.status==='done'&&d.result){document.getElementById('scan-result').innerHTML='<div class="glass-card" style="border-color:rgba(34,197,94,0.4);"><h3 style="color:var(--success);">✅ Audit terminé</h3><p>'+d.result.hosts+' hôte(s) • '+d.result.vulns+' faille(s)</p><div class="btn-group" style="margin-top:12px;"><a class="btn btn-primary btn-sm" href="/api/reports/'+d.result.report_pdf.split('/').pop()+'" download>📄 Télécharger PDF</a><button class="btn btn-secondary btn-sm" onclick="resetScanForm()">🔁 Nouveau scan</button></div></div>';toast('Audit terminé !','success')}
       if(d.status==='error'){toast(d.error||'Erreur scan','error');resetScanForm()}};
     _ws.onerror=()=>{toast('Erreur WebSocket','error');resetScanForm()}
