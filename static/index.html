@@ -479,7 +479,7 @@ let _activeScanId=null,_ws=null,_apiToken=localStorage.getItem('sentient_token')
 async function sfetch(url,opts={}){
   const headers={'Content-Type':'application/json',...opts.headers};
   if(_apiToken)headers['Authorization']='Bearer '+_apiToken;
-  const res=await sfetch(API+url,{...opts,headers});
+  const res=await fetch(API+url,{...opts,headers});
   if(res.status===401){localStorage.removeItem('sentient_token');_apiToken='';location.reload()}
   return res
 }
@@ -555,7 +555,7 @@ async function launchScan(){
     document.getElementById('scan-progress').style.display='block';
     initStepper();
     const proto=location.protocol==='https:'?'wss':'ws';
-    _ws=new WebSocket(proto+"://"+location.host+"/ws/scan/"+scan_id+(_apiToken?"?token="+_apiToken:""))'://'+location.host+'/ws/scan/'+scan_id);
+    _ws=new WebSocket(proto+"://"+location.host+"/ws/scan/"+scan_id+(_apiToken?"?token="+_apiToken:""));
     _ws.onmessage=(e)=>{const d=JSON.parse(e.data);updateStepper(d.steps||[]);const p=d.progress;
       // Smooth fake-easing: jumps feel faster
       const displayP = p<10?p*2:p<50?p+5:p<80?Math.min(95,p+3):p;
