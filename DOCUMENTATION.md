@@ -87,7 +87,7 @@ curl -sL https://raw.githubusercontent.com/magasword22/sentient-ai/main/install.
 ### Accès réseau
 L'interface est accessible depuis n'importe quel appareil du LAN :
 ```
-http://192.168.1.104:8501
+http://SERVEUR_IP:8501
 ```
 L'IP s'affiche dans la sidebar (cliquable pour copier).
 
@@ -213,7 +213,7 @@ L'IP s'affiche dans la sidebar (cliquable pour copier).
 ### Connexion SSH
 ```json
 {
-  "host": "192.168.1.10",
+  "host": "CIBLE_IP",
   "port": 22,
   "username": "root",
   "password": "",
@@ -280,10 +280,10 @@ Depuis **Diagnostic → Benchmark**, mesurer la vitesse :
 ### Déploiement d'une sonde
 ```bash
 python3 sentient_agent.py \
-  --master http://192.168.1.104:8501 \
+  --master http://SERVEUR_IP:8501 \
   --name "VPS Paris" \
   --port 8502 \
-  --token sentient_secure_token_2026
+  --token CHANGE_ME
 ```
 
 ### Variables d'environnement

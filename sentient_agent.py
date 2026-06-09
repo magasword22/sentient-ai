@@ -19,7 +19,7 @@ import argparse
 import urllib.request
 
 PORT = int(os.environ.get("AGENT_PORT", 8502))
-TOKEN = os.environ.get("AGENT_TOKEN", "sentient_secure_token_2026")
+TOKEN = os.environ.get("AGENT_TOKEN", "CHANGE_ME")
 MASTER_URL = os.environ.get("MASTER_URL", "")
 AGENT_NAME = os.environ.get("AGENT_NAME", "")
 _scanning = False
@@ -205,10 +205,10 @@ def run():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Sentient AI Scanner Agent")
-    parser.add_argument("--master", default="", help="URL du serveur principal (ex: http://192.168.1.104:8501)")
+    parser.add_argument("--master", default="", help="URL du serveur principal (ex: http://SERVEUR_IP:8501)")
     parser.add_argument("--name", default="", help="Nom de la sonde (ex: VPS Paris)")
     parser.add_argument("--port", type=int, default=8502, help="Port d'écoute (défaut: 8502)")
-    parser.add_argument("--token", default="sentient_secure_token_2026", help="Token d'authentification")
+    parser.add_argument("--token", default="CHANGE_ME", help="Token d'authentification")
     args = parser.parse_args()
     PORT = args.port
     TOKEN = args.token

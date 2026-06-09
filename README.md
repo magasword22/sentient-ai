@@ -119,7 +119,7 @@ uvicorn api:app --host 0.0.0.0 --port 8501
 # → Dashboard → Lancer un Audit → localhost → Mode Démo → 🚀
 
 # Déployer une sonde distante
-python3 sentient_agent.py --master http://192.168.1.104:8501 --name "VPS Paris"
+python3 sentient_agent.py --master http://SERVEUR_IP:8501 --name "VPS Paris"
 
 # CI/CD
 python3 sentient_cli.py --target example.com --format sarif --output results.sarif

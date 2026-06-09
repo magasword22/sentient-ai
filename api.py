@@ -440,7 +440,7 @@ import asyncio
 
 # ── Probes management ─────────────────────────────────────────────────────
 @app.post("/api/probes")
-def add_probe(name: str, url: str, token: str = "sentient_secure_token_2026"):
+def add_probe(name: str, url: str, token: str = "CHANGE_ME"):
     cfg = report_config.load_report_config()
     probes = cfg.get("remote_probes", [])
     probes.append({"name": name, "url": url, "token": token})

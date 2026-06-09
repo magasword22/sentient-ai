@@ -924,7 +924,7 @@ elif menu == "⚡ Lancer un Audit" or st.session_state.get('force_menu') == "⚡
         st.markdown("""
         ### 🎯 Formats de cibles acceptés
         * **Machine unique (IP)** : Renseignez une adresse IPv4 pour analyser un hôte spécifique.
-          * *Exemple :* `192.168.1.50` ou `8.8.8.8`
+          * *Exemple :* `AGENT_IP` ou `8.8.8.8`
         * **Nom de domaine / URL** : Idéal pour cibler un serveur web, un DNS ou une application web.
           * *Exemple :* `scanme.nmap.org` ou `http://192.168.1.100:8080`
         * **Plage réseau (CIDR)** : Renseignez un sous-réseau complet. Les hôtes actifs seront découverts et scannés automatiquement.
@@ -2602,7 +2602,7 @@ elif menu == "⚙️ Configuration":
         with st.form("add_probe_form"):
             probe_name = st.text_input("Nom de la sonde", placeholder="ex: VPS Paris")
             probe_url = st.text_input("URL de la sonde", placeholder="ex: http://192.168.1.100:8502")
-            probe_token = st.text_input("Jeton de sécurité (Token)", value="sentient_secure_token_2026", type="password")
+            probe_token = st.text_input("Jeton de sécurité (Token)", value="CHANGE_ME", type="password")
             submitted_probe = st.form_submit_button("Ajouter la sonde", type="primary")
             if submitted_probe:
                 if not probe_name or not probe_url:
