@@ -174,38 +174,6 @@
 
 ---
 
-## 🤖 Propulsable par IA (Qwen Code)
-
-Ces items peuvent être implémentés en session maintenant — pas de dépendances externes, juste du code :
-
-| Item | Effort |
-|---|---|
-| **Thèmes UI fonctionnels** — fix `applyTheme()` dans `loadConfig()` | 5 min |
-| **Licence** — créer `LICENSE.md` | 5 min |
-| **Explication coffre à PoC** — ajouter description dans l'UI | 5 min |
-| **Badge GitHub** — `![Sentient Audit](...)` | 5 min |
-| **Prompt library** — fichier JSON de prompts par type d'audit | 10 min |
-| **Mode hors-ligne total** — flag pour désactiver les providers cloud | 10 min |
-| **Cache de réponses LLM** — simple dict in-memory | 15 min |
-| **Preview RAG** — afficher titre + extrait avant activation | 15 min |
-| **One-liner sonde** — script `install_agent.sh` | 15 min |
-| **Systemd natif** — `sentient.service` mis à jour | 20 min |
-| **Section CI/CD dédiée** — doc + exemples GitHub Actions | 20 min |
-| **Niveaux de détail PDF** — sélecteur Exécutif/Standard/Complet | 30 min |
-| **Tutoriel onboarding** — overlay première connexion | 30 min |
-| **Changement de modèle LLM local** — sélecteur dans l'UI | 30 min |
-| **Fallback automatique LLM** — chaîne Ollama→DeepSeek→OpenAI | 30 min |
-| **Streaming LLM temps réel** — SSE endpoint pour le chat | 45 min |
-| **ROI métier complet** — restaurer sliders interactifs | 45 min |
-| **Groupes utilisateurs + rôles custom** — DB + UI | 1 h |
-| **Comparateur de fournisseurs IA** — benchmark automatique | 1 h |
-| **Scanner de fichiers sensibles** — regex PII/secrets en Python | 2 h |
-| **Webhooks** — tester et finaliser Slack/Discord/Teams | 2 h |
-
-> 💡 Demande-moi simplement « Implémente X » et je le code.
-
----
-
 ## 🧠 Boostables par LLM/IA (optionnel)
 
 Ces fonctionnalités gagnent en puissance si un LLM (local ou cloud) les assiste — mais restent fonctionnelles sans :
