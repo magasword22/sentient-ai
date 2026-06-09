@@ -59,6 +59,22 @@ def get_configured_llm(cfg=None):
         from langchain_openai import ChatOpenAI
         api_key = cfg.get("openai_api_key") or os.environ.get("OPENAI_API_KEY")
         return ChatOpenAI(model=model, openai_api_key=api_key)
+    elif provider == "DeepSeek":
+        from langchain_openai import ChatOpenAI
+        api_key = cfg.get("deepseek_api_key") or os.environ.get("DEEPSEEK_API_KEY")
+        return ChatOpenAI(
+            model=model or "deepseek-chat",
+            openai_api_key=api_key,
+            openai_api_base="https://api.deepseek.com/v1"
+        )
+    elif provider == "Mistral":
+        from langchain_openai import ChatOpenAI
+        api_key = cfg.get("mistral_api_key") or os.environ.get("MISTRAL_API_KEY")
+        return ChatOpenAI(
+            model=model or "mistral-large-latest",
+            openai_api_key=api_key,
+            openai_api_base="https://api.mistral.ai/v1"
+        )
     elif provider == "Anthropic":
         api_key = cfg.get("anthropic_api_key") or os.environ.get("ANTHROPIC_API_KEY")
         try:

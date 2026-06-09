@@ -84,6 +84,11 @@ class ConfigUpdate(pydantic.BaseModel):
     data_sensitivity: Optional[str] = None
     llm_provider: Optional[str] = None
     llm_model: Optional[str] = None
+    openai_api_key: Optional[str] = None
+    anthropic_api_key: Optional[str] = None
+    groq_api_key: Optional[str] = None
+    deepseek_api_key: Optional[str] = None
+    mistral_api_key: Optional[str] = None
     webhook_provider: Optional[str] = None
     webhook_url: Optional[str] = None
 
@@ -531,9 +536,16 @@ def chat(req: ChatRequest):
     try:
         from chat import stream_chat_response
         response = stream_chat_response(req.report_md, req.history, req.query, req.use_web)
-        # stream_chat_response returns a generator of tokens — join them
-        if hasattr(response, '__iter__') and not isinstance(response, str):
-            response = ''.join(list(response))
+        # stream_chat_response returns a generator — join tokens, handling both str and LangChain chunks
+        tokens = []
+        for chunk in response:
+            if hasattr(chunk, 'content'):
+                tokens.append(chunk.content)
+            elif isinstance(chunk, str):
+                tokens.append(chunk)
+            else:
+                tokens.append(str(chunk))
+        response = ''.join(tokens)
         return {"status": "ok", "response": response}
     except Exception as e:
         raise HTTPException(500, str(e))
