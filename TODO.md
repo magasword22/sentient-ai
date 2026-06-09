@@ -203,3 +203,23 @@ Ces items peuvent être implémentés en session maintenant — pas de dépendan
 | **Webhooks** — tester et finaliser Slack/Discord/Teams | 2 h |
 
 > 💡 Demande-moi simplement « Implémente X » et je le code.
+
+---
+
+## 🧠 Boostables par LLM/IA (optionnel)
+
+Ces fonctionnalités gagnent en puissance si un LLM (local ou cloud) les assiste — mais restent fonctionnelles sans :
+
+| Fonctionnalité | Sans IA | Avec IA |
+|---|---|---|
+| **Scanner de données sensibles** | Regex patterns (IBAN, CB, email) | Classification contextuelle : « ce PDF est un bulletin de salaire » vs « ce PDF est un rapport public » |
+| **Audit AD avancé** | Liste de vulnérabilités techniques | Explication en langage naturel des chemins d'attaque exploitables, scénarios de compromission |
+| **PrivEsc multi-OS** | Liste des vulnérabilités trouvées | Recommandations d'exploitation chaînées : « Utilise ce SUID pour devenir root via ce kernel exploit » |
+| **Cartographie réseau** | Graphe statique IP/ports | Analyse des relations : « Ce service exposé permet de pivoter vers ce sous-réseau interne » |
+| **Rapports PDF** | Template fixe | Résumé exécutif personnalisé par secteur, recommandations priorisées, ton adapté au destinataire |
+| **Classification des vulnérabilités** | Score CVSS brut | Contexte métier : « Critique pour ta banque, mineur pour ton blog WordPress » |
+| **Alertes & Webhooks** | Message standard | Alerte contextualisée : « Nouveau RCE critique sur ton Exchange exposé, correctif dispo depuis 2 jours » |
+| **Tutoriel onboarding** | Bulles statiques | Assistant conversationnel qui répond aux questions en temps réel |
+| **ROI calculateur** | Calcul mathématique | Justification narrative : « Investir 50 k€ maintenant évite 2 M€ de fuite de données dans 18 mois » |
+
+> 🧠 L'idée : chaque feature fonctionne en mode dégradé sans LLM, mais devient 10× plus utile avec. Le LLM est un « boost » optionnel, pas une dépendance.
