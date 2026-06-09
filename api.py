@@ -391,6 +391,26 @@ def generate_poc(req: PoCRequest):
     except Exception as e:
         raise HTTPException(500, str(e))
 
+# ── Chat endpoint ─────────────────────────────────────────────────────────
+class ChatRequest(pydantic.BaseModel):
+    query: str
+    history: list[dict] = []
+    report_md: str = ""
+    use_web: bool = False
+
+@app.post("/api/chat")
+def chat(req: ChatRequest):
+    """Assistant virtuel RAG."""
+    try:
+        from chat import stream_chat_response
+        response = stream_chat_response(req.report_md, req.history, req.query, req.use_web)
+        # stream_chat_response returns a generator of tokens — join them
+        if hasattr(response, '__iter__') and not isinstance(response, str):
+            response = ''.join(list(response))
+        return {"status": "ok", "response": response}
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
 # ── Serve frontend SPA (fallback) ─────────────────────────────────────────
 
 @app.get("/")
