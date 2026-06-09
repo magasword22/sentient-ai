@@ -121,6 +121,21 @@
 
 ---
 
+### 🎨 Interface & Design
+- [ ] **Refonte graphique avancée** : améliorer le polish visuel, transitions de page, micro-interactions
+- [ ] **Mode scan immersif** : vue plein écran sans chrome pendant l'audit
+- [ ] **Dashboard builder** : choisir les widgets/KPIs affichés
+- [ ] **Dark mode OLED** : thème noir pur (#000) pour écrans AMOLED
+- [ ] **PWA** : installation comme application desktop/mobile
+
+### 🔌 API Plugins & Extensibilité
+- [ ] **Système de plugins** : API publique documentée pour extensions tierces
+- [ ] **Hooks post-scan** : exécuter des scripts personnalisés après chaque audit
+- [ ] **API GraphQL** : alternative REST pour requêtes flexibles
+- [ ] **Webhook sortants** : envoyer résultats vers n'importe quel endpoint
+- [ ] **Intégrations** : Jira, Confluence, ServiceNow, TheHive, Splunk
+- [ ] **Marketplace plugins** : dépôt communautaire
+
 ## 📊 État global
 
 | Catégorie | Complétion |
@@ -133,6 +148,8 @@
 | Sécurité | 90% ✅ |
 | CI/CD | 80% ✅ |
 | Expérience utilisateur | 60% |
+| Interface & Design | 10% |
+| API Plugins | 0% |
 | Cloud & Enterprise | 0% |
 | Threat Intel | 0% |
 | Site & Visibilité | 0% |
