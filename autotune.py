@@ -120,27 +120,75 @@ if __name__ == "__main__":
     autotune()
 
 def get_telemetry():
-    """Retourne les métriques système en temps réel pour l'API."""
+    """Retourne les métriques système enrichies pour l'API."""
     import psutil
-    cpu = psutil.cpu_percent(interval=1)
+    cpu_count = os.cpu_count() or 1
+    cpu = psutil.cpu_percent(interval=0.5)
     ram = psutil.virtual_memory()
-    gpu_info = {"available": False}
-    # Try GPU via rocm-smi or nvidia-smi
+    gpu_info = {"available": False, "model": "CPU Fallback", "util": 0, "vram_used": 0, "vram_total": 0, "vram_pct": 0}
+
+    # ── GPU Detection ──────────────────────────────────────────────────
+    gpu_model = "CPU Fallback"
     try:
-        out = subprocess.check_output(['rocm-smi', '--showuse', '--csv'], stderr=subprocess.DEVNULL, timeout=5).decode()
-        gpu_info = {"available": True, "util": 0, "vram_used": 0, "vram_total": 0}
-    except:
+        out = subprocess.check_output(['lspci'], stderr=subprocess.DEVNULL, timeout=5).decode().lower()
+        if 'nvidia' in out: gpu_model = "NVIDIA GPU"
+        elif 'amd' in out or 'radeon' in out: gpu_model = "AMD Radeon GPU"
+        elif 'strix' in out: gpu_model = "AMD Strix Halo"
+    except: pass
+
+    # ── NVIDIA metrics ─────────────────────────────────────────────────
+    try:
+        out = subprocess.check_output(['nvidia-smi', '--query-gpu=name,memory.total,memory.used,utilization.gpu', '--format=csv,noheader,nounits'], stderr=subprocess.DEVNULL, timeout=5).decode()
+        parts = out.strip().split(',')
+        if len(parts) >= 4:
+            gpu_model = parts[0].strip()
+            gpu_info = {
+                "available": True, "model": gpu_model,
+                "vram_total": float(parts[1].strip()) / 1024.0,
+                "vram_used": float(parts[2].strip()) / 1024.0,
+                "util": float(parts[3].strip()),
+            }
+            gpu_info["vram_pct"] = (gpu_info["vram_used"] / gpu_info["vram_total"] * 100) if gpu_info["vram_total"] > 0 else 0
+    except: pass
+
+    # ── AMD ROCm metrics ───────────────────────────────────────────────
+    if not gpu_info["available"]:
         try:
-            out = subprocess.check_output(['nvidia-smi', '--query-gpu=utilization.gpu,memory.used,memory.total', '--format=csv,noheader,nounits'], stderr=subprocess.DEVNULL, timeout=5).decode()
-            parts = out.strip().split(',')
-            if len(parts) >= 3:
-                gpu_info = {"available": True, "util": float(parts[0].strip()), "vram_used": float(parts[1].strip()), "vram_total": float(parts[2].strip())}
-        except:
-            pass
+            # Try sysfs first
+            for d in os.listdir('/sys/class/drm/'):
+                if d.startswith('card') and os.path.exists(f'/sys/class/drm/{d}/device/gpu_busy_percent'):
+                    sys_path = f'/sys/class/drm/{d}/device'
+                    with open(f'{sys_path}/gpu_busy_percent') as f: gpu_util = int(f.read().strip())
+                    with open(f'{sys_path}/mem_info_vram_total') as f: vram_tot = int(f.read().strip())
+                    with open(f'{sys_path}/mem_info_vram_used') as f: vram_used = int(f.read().strip())
+                    vram_tot_gb = vram_tot / (1024**3)
+                    vram_used_gb = vram_used / (1024**3)
+                    gpu_info = {
+                        "available": True, "model": gpu_model if "Strix" in gpu_model else "AMD Radeon GPU",
+                        "util": gpu_util, "vram_total": vram_tot_gb, "vram_used": vram_used_gb,
+                        "vram_pct": (vram_used_gb / vram_tot_gb * 100) if vram_tot_gb > 0 else 0,
+                    }
+                    break
+        except: pass
+
+    # ── Ollama status ──────────────────────────────────────────────────
+    ollama_connected = False
+    ollama_models = []
+    try:
+        import requests
+        r = requests.get("http://localhost:11434/api/tags", timeout=2)
+        if r.status_code == 200:
+            ollama_connected = True
+            ollama_models = [m.get("name", "") for m in r.json().get("models", [])]
+    except: pass
+
     return {
+        "cpu_count": cpu_count,
         "cpu_pct": cpu,
         "ram_pct": ram.percent,
         "ram_total_gb": round(ram.total / (1024**3), 1),
         "ram_used_gb": round(ram.used / (1024**3), 1),
         "gpu": gpu_info,
+        "ollama_connected": ollama_connected,
+        "ollama_models": ollama_models,
     }

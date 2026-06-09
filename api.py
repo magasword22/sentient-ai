@@ -146,6 +146,41 @@ def get_ip():
         s.close()
     return {"ip": ip}
 
+# ── Benchmark IA ──────────────────────────────────────────────────────────
+class BenchmarkRequest(pydantic.BaseModel):
+    model: str
+    prompt: str = "Explique-moi la théorie de la relativité générale en 3 phrases simples."
+
+@app.post("/api/benchmark")
+def run_benchmark(req: BenchmarkRequest):
+    """Test de vitesse de l'IA locale (tokens/seconde)."""
+    import time, requests as req
+    start = time.time()
+    try:
+        ollama_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+        r = req.post(f"{ollama_url}/api/generate", json={"model": req.model, "prompt": req.prompt, "stream": False}, timeout=120)
+        elapsed = time.time() - start
+        if r.status_code == 200:
+            d = r.json()
+            eval_count = d.get("eval_count", 0)
+            eval_ns = d.get("eval_duration", 0)
+            prompt_count = d.get("prompt_eval_count", 0)
+            prompt_ns = d.get("prompt_eval_duration", 0)
+            total_ns = d.get("total_duration", 0)
+            tps = eval_count / (eval_ns / 1e9) if eval_ns > 0 else (eval_count / elapsed if elapsed > 0 else 0)
+            prompt_tps = prompt_count / (prompt_ns / 1e9) if prompt_ns > 0 else 0
+            return {
+                "status": "ok", "model": req.model,
+                "tokens_per_sec": round(tps, 2),
+                "prompt_tokens_per_sec": round(prompt_tps, 2),
+                "total_sec": round(total_ns / 1e9 if total_ns > 0 else elapsed, 2),
+                "eval_count": eval_count,
+                "response_text": d.get("response", "")[:500],
+            }
+        return {"status": "error", "message": f"Ollama returned {r.status_code}"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
 # ── RAG ──────────────────────────────────────────────────────────────────
 @app.post("/api/rag/upload")
 async def upload_rag(file: UploadFile):
