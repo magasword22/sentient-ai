@@ -7,10 +7,10 @@
 ## ✅ Implémenté (v3.0 — Architecture FastAPI + SPA)
 
 ### 🏗️ Architecture
-- ✅ **FastAPI backend** — remplace Streamlit, 30+ endpoints REST + WebSocket
-- ✅ **SPA Vanilla JS** — zéro dépendance npm, glassmorphisme, particules canvas
-- ✅ **Design system CSS** — variables, 3 thèmes, animations, composants réutilisables
-- ✅ **Docker Compose** — Ollama ROCm + app, GPU passthrough
+- ✅ FastAPI backend — 30+ endpoints REST + WebSocket
+- ✅ SPA Vanilla JS — zéro dépendance npm, glassmorphisme, particules canvas
+- ✅ Design system CSS — variables, 3 thèmes, animations, composants réutilisables
+- ✅ Docker Compose — Ollama ROCm + app, GPU passthrough
 
 ### 🔬 Scan & Découverte
 - ✅ Nmap : Top 1000 / Fast / Full / Agressif / Scripts vuln
@@ -23,69 +23,101 @@
 
 ### 🧠 IA & Analyse
 - ✅ CrewAI : 5 agents (SOC Analyst, Lead Pentester, Exploit Validator, Defender, Translator)
-- ✅ RAG ChromaDB avec 4 standards pré-intégrés (ANSSI, CIS, OWASP, Kernel Exploits) — activation 1 clic
+- ✅ RAG ChromaDB + 4 standards pré-intégrés (ANSSI, CIS, OWASP, Kernel Exploits)
 - ✅ 6 fournisseurs LLM : Ollama, DeepSeek, OpenAI, Anthropic, Groq, Mistral
 - ✅ Recherche Web dynamique (DuckDuckGo)
-- ✅ Rapports PDF White-Label multilingues (FR, EN, ES, DE)
-- ✅ Assistant virtuel (Chat RAG)
+- ✅ Rapports PDF White-Label multilingues
+- ✅ Assistant virtuel RAG
 - ✅ Benchmark IA : test de vitesse tokens/sec
 
 ### 🖥️ Audits Système
 - ✅ PrivEsc Multi-OS : Linux, macOS, Windows via SSH
 - ✅ Coffre à PoC : génération par CVE
 - ✅ Analyse ROI financier (DORA/NIS 2/RGPD)
-- ✅ Planificateur de scans récurrents (cron)
+- ✅ Planificateur de scans récurrents
 
 ### 🛰️ Architecture Distribuée
-- ✅ Sondes légères (`sentient_agent.py`) avec heartbeat
-- ✅ Monitoring temps réel : statut, scan actif, online/offline
+- ✅ Sondes légères avec heartbeat
+- ✅ Monitoring temps réel des agents
 - ✅ Gestion des sondes dans l'interface
 - ✅ Authentification par token Bearer
-- ✅ Logs live streamés via WebSocket pendant le scan
+- ✅ Logs live des subprocess en streaming
 
 ### 🔒 Sécurité
-- ✅ RBAC : admin/client avec gestion des utilisateurs
-- ✅ Secrets : stockage local chiffré, aucune donnée ne quitte la machine
-- ✅ Pare-feu : règles UFW pour SSH + app
+- ✅ RBAC : admin/client
+- ✅ Secrets : stockage local, aucune donnée ne quitte la machine
+- ✅ Pare-feu UFW
 
 ### 🎨 Interface
-- ✅ 3 thèmes : Slate/Zinc, Light/Clean, Matrix/Hacker
 - ✅ Glassmorphisme, particules canvas, animations
-- ✅ Barre de progression avec illusion de vitesse (shimmer, glow, fake-easing)
-- ✅ Logs temps réel dans la barre de progression (subprocess output)
+- ✅ Barre de progression avec illusion de vitesse
+- ✅ Logs temps réel dans la barre de scan
 - ✅ Raccourcis clavier (Ctrl+Enter)
-- ✅ Affichage IP LAN pour accès réseau
+- ✅ Affichage IP LAN
 
 ---
 
-## 🔮 Roadmap future (v3.1+)
+## 🔧 Correctifs prioritaires (v3.0.1)
 
-### Exploitation & Validation
+- [ ] **Thèmes UI fonctionnels** — le sélecteur de thème (Slate/Light/Matrix) sauvegarde la valeur mais ne l'applique pas au DOM. Ajouter `applyTheme()` dans `loadConfig()`.
+- [ ] **Webhooks** — tester et valider les envois Slack/Discord/Teams depuis l'API
+- [ ] **ROI métier complet** — restaurer les sliders interactifs de coûts personnalisés (comme dans l'ancien Streamlit)
+- [ ] **Changer de modèle LLM local** — permettre de sélectionner un autre modèle Ollama installé sans passer par la config manuelle
+- [ ] **Niveaux de détail PDF** — ajouter un sélecteur : Complet / Résumé / Exécutif dans la génération de rapport
+- [ ] **Explication Coffre à PoC** — ajouter une description claire : « Génère un script inoffensif de vérification pour une CVE donnée, utilisable comme preuve lors d'un audit »
+- [ ] **Sécurité & vie privée** — audit complet : vérifier qu'aucune IP, hostname, username ou clé n'est loggué dans les rapports ou les logs
+- [ ] **Licence d'utilisation** — créer `LICENSE.md` avec les vrais termes (usage interne/éducatif, pas de revente sans autorisation)
+
+---
+
+## 🔮 Roadmap v3.1
+
+### 🚀 Déploiement & Expérience
+- [ ] **One-liner sonde** : `curl -sL .../install_agent.sh | bash` pour déployer une sonde en 1 commande
+- [ ] **Systemd natif** : `sentient start/stop/status` démarre l'API comme les autres services
+- [ ] **Tutoriel onboarding** : overlay discret au premier lancement, non-bloquant, SKIP possible
+- [ ] **Certificats SSL** : accepter/configurer un certificat Let's Encrypt ou custom dans l'interface
+
+### 👥 Utilisateurs & Permissions
+- [ ] **Groupes d'utilisateurs** : créer des rôles préconfigurés (Lecteur, Auditeur, Admin, SuperAdmin)
+- [ ] **Permissions granulaires** : restreindre l'accès à certaines pages/fonctions par rôle
+- [ ] **Rôles custom** : créer un rôle personnalisé avec sélection fine des permissions
+
+### 📊 Visualisation
+- [ ] **Graphe BloodHound-like** : visualisation des chemins d'élévation de privilèges (utilisateurs → groupes → permissions)
+- [ ] **Cartographie réseau** : graphique interactif des hôtes découverts et services exposés
+
+### 🧠 IA & RAG
+- [ ] **Preview RAG** : voir le contenu des standards avant activation (titre, extrait, nombre de chunks)
+- [ ] **Fournisseurs IA supplémentaires** : Google Gemini, Cohere, Together AI, Replicate, Fireworks, Perplexity
+- [ ] **Streaming LLM temps réel** : afficher les tokens du chat au fur et à mesure
+
+### 📄 Rapports
+- [ ] **Niveaux de détail configurables** : Exécutif (1 page) / Standard / Complet (toutes les preuves)
+- [ ] **Template PDF personnalisable** : upload d'un template HTML/CSS pour les rapports
+- [ ] **Export Confluence/Jira** : publier directement le rapport dans l'outil de ticketing
+
+### 🌐 Site Web & Visibilité
+- [ ] **Site vitrine** : landing page ultra-moderne présentant l'outil (design cyberpunk, animations, démo vidéo)
+- [ ] **Documentation intégrée** : la doc Markdown rendue sur le site avec recherche et navigation
+- [ ] **Section CI/CD dédiée** : exemples GitLab CI, GitHub Actions, Jenkins pour `sentient_cli.py`
+- [ ] **Badge GitHub** : `![Sentient Audit](https://img.shields.io/...)` pour les repos scannés
+
+### 🔬 Exploitation & Validation
 - [ ] **Bac à sable d'exploitation** : conteneur Docker éphémère pour tester les PoC sans risque
 - [ ] **Exploit Validator automatique** : exécution de PoC non destructives
 - [ ] **Intégration Metasploit** : lancement de modules MSF depuis l'interface
 
-### Cloud & Infrastructure
-- [ ] **Cartographie Active Directory** : BloodHound-like, chemins d'attaque AD
+### ☁️ Cloud & Enterprise
+- [ ] **Cartographie AD** : BloodHound-like, chemins d'attaque Active Directory
 - [ ] **Audit Cloud IAM** : AWS, GCP, Azure — politiques, clés inactives
 - [ ] **Terraform / Ansible** : provisionnement automatique de sondes
-- [ ] **Helm Chart Kubernetes** : déploiement enterprise
+- [ ] **Helm Chart** : déploiement Kubernetes
 
-### Threat Intelligence
+### 🕵️ Threat Intelligence
 - [ ] **Intégration CISA KEV** : catalogue des vulnérabilités activement exploitées
-- [ ] **Flux CVE en temps réel** : ingestion automatique dans ChromaDB
-- [ ] **Abonnement alertes** : notification sur nouvelles CVE critiques
-
-### Interface
-- [ ] **Dark mode OLED** : thème noir pur (#000)
-- [ ] **Tableau de bord personnalisable** : widgets drag & drop
-- [ ] **Mode kiosque** : plein écran pour écrans de monitoring
-- [ ] **PWA** : installation comme application desktop/mobile
-
-### Performance
-- [ ] **Scan parallèle multi-sondes** : répartition de charge
-- [ ] **Cache de scan** : éviter de re-scanner les mêmes cibles
-- [ ] **Streaming LLM** : tokens en temps réel dans le chat
+- [ ] **Flux CVE temps réel** : ingestion automatique dans ChromaDB
+- [ ] **Abonnement alertes** : notification sur nouvelles CVE critiques (email, webhook)
 
 ---
 
@@ -95,11 +127,13 @@
 |---|---|
 | Architecture | 100% ✅ |
 | Scan & Découverte | 100% ✅ |
-| IA & Analyse | 100% ✅ |
-| Interface | 100% ✅ |
+| IA & Analyse | 95% ✅ |
+| Interface | 90% ✅ |
 | Sondes & Monitoring | 100% ✅ |
-| Sécurité | 100% ✅ |
-| CI/CD | 100% ✅ |
+| Sécurité | 90% ✅ |
+| CI/CD | 80% ✅ |
+| Expérience utilisateur | 60% |
 | Cloud & Enterprise | 0% |
 | Threat Intel | 0% |
-| **Total** | **~85%** |
+| Site & Visibilité | 0% |
+| **Total** | **~75%** |
