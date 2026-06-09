@@ -386,6 +386,44 @@ uvicorn api:app --host 0.0.0.0 --port 443
 | `SSL_CERT` | Chemin fullchain.pem Let's Encrypt | Non |
 | `SSL_KEY` | Chemin privkey.pem Let's Encrypt | Non |
 
+> **💡 Configuration via l'interface** : Tout peut aussi se configurer depuis **Configuration → 🔒 Sécurité** sans toucher aux variables d'environnement. Si une variable d'environnement est définie, elle prime. Sinon, la config interface prend le relais.
+
+#### Token API : comment l'utiliser côté client
+
+Une fois le mode public activé, tous les clients doivent fournir le token :
+
+```bash
+# curl
+curl -H "Authorization: Bearer VOTRE_TOKEN" http://serveur:8501/api/history
+
+# Python
+import requests
+requests.get("http://serveur:8501/api/history",
+             headers={"Authorization": "Bearer VOTRE_TOKEN"})
+
+# GitHub Actions
+env:
+  SENTIENT_TOKEN: ${{ secrets.SENTIENT_TOKEN }}
+```
+
+L'interface web gère le token automatiquement via le wrapper `sfetch()` — aucun code à écrire.
+
+#### Certificats SSL via l'interface
+
+Depuis **Configuration → 🔐 Certificat SSL** :
+1. Renseigner le chemin `fullchain.pem`
+2. Renseigner le chemin `privkey.pem`
+3. Sauvegarder
+4. Redémarrer le serveur
+
+```bash
+# Après avoir configuré les chemins SSL dans l'interface :
+uvicorn api:app --host 0.0.0.0 --port 443
+# Les certificats sont chargés automatiquement
+```
+
+⚠️ Le redémarrage est obligatoire — uvicorn charge les certificats au démarrage.
+
 #### Protections activées en mode public
 | Protection | Description | Testé |
 |---|---|---|
