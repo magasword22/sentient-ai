@@ -91,6 +91,15 @@
 - [ ] **Preview RAG** : voir le contenu des standards avant activation (titre, extrait, nombre de chunks)
 - [ ] **Fournisseurs IA supplémentaires** : Google Gemini, Cohere, Together AI, Replicate, Fireworks, Perplexity
 - [ ] **Streaming LLM temps réel** : afficher les tokens du chat au fur et à mesure
+- [ ] **Fallback automatique** : si Ollama est down → DeepSeek → OpenAI — chaîne de secours configurable
+- [ ] **Chaînage multi-LLM** : modèle local rapide pour les tâches simples, cloud puissant pour l'analyse finale
+- [ ] **Comparateur de fournisseurs** : benchmarker plusieurs LLM sur le même prompt (vitesse, coût, qualité)
+- [ ] **Estimation de coût** : afficher le coût estimé en tokens/€ avant chaque requête cloud
+- [ ] **Cache de réponses LLM** : éviter de re-générer les mêmes analyses (économie de tokens)
+- [ ] **Modèles locaux additionnels** : llama.cpp, vLLM, TGI, Ollama multi-modèles
+- [ ] **Fine-tuning local** : entraîner un modèle sur les rapports passés pour des recommandations personnalisées
+- [ ] **Mode hors-ligne total** : tout fonctionne sans Internet (Ollama + RAG + outils locaux)
+- [ ] **Prompt library** : bibliothèque de prompts par type d'audit (web, AD, cloud, conformité)
 
 ### 📄 Rapports
 - [ ] **Niveaux de détail configurables** : Exécutif (1 page) / Standard / Complet (toutes les preuves)
