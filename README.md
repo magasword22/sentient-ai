@@ -2,174 +2,193 @@
 
 <img src="assets/SentientAIPurple.png" width="180" align="right">
 
-**Sentient AI** est une plateforme d'audit de sécurité automatisée (PTaaS - Penetration Testing as a Service), propulsée par une architecture d'Agents d'Intelligence Artificielle (CrewAI) fonctionnant à **100% en local** (Ollama).
+**Sentient AI** est une plateforme d'audit de sécurité autonome (PTaaS — Penetration Testing as a Service), propulsée par une architecture d'Agents IA (CrewAI) et fonctionnant à 100% en local ou avec des LLM cloud (DeepSeek, OpenAI, Anthropic, Groq, Mistral).
 
-📖 Consultez la [Documentation Complète](DOCUMENTATION.md) pour obtenir des guides détaillés, des exemples de commandes et des instructions d'intégration.
+📖 [Documentation Complète](DOCUMENTATION.md) — [Feuille de Route](TODO.md)
 
-Elle combine la puissance de découverte réseau de **Nmap** et de **Nuclei** avec les capacités de raisonnement de modèles LLM de dernière génération (ex: Llama 3) pour générer des rapports de pentest exécutifs et sans faux positifs.
-
-![Sentient AI](https://img.shields.io/badge/Status-Production%20Ready-success)
-![LLM](https://img.shields.io/badge/AI-Ollama%20%7C%20Llama%203-blue)
-
-## 🚀 Fonctionnalités Principales
-
-- **Orchestration Agentique (CrewAI)** : Deux agents IA (Analyste SOC & Lead Pentester) discutent et filtrent les résultats bruts des scanners.
-- **Audits LPE Multi-OS (SSH)** : Détection automatique de l'OS (`Linux`, `macOS`, `Windows`) par SSH et exécution d'audits d'élévation de privilèges locaux (PrivEsc) analysés par l'IA.
-- **Coffre à PoC & Détection** : Interface de génération de guides et de scripts de détection/vérification inoffensifs et passifs (Python ou Bash) pour valider des CVEs.
-- **Détections Cyber Extrêmes** : Chasse aux mots de passe en clair (registres Autologon, historiques shells), corrélation automatique des CVE de noyau via RAG, audit de segmentation réseau (ports locaux vs externes) et analyse de patchs obsolètes.
-- **Enrichissement Web Dynamique** : L'IA effectue ses propres recherches Web pour trouver des Preuves de Concept (PoC) publiques ou des exploits GitHub en temps réel.
-- **RAG (Retrieval-Augmented Generation)** : Ingestion de vos propres documents de sécurité (ISO 27001, guides ANSSI, bases d'exploits de noyau) pour dicter à l'IA comment formuler les recommandations.
-- **100% On-Premise / Local** : Vos logs de vulnérabilités ne quittent jamais votre machine.
-- **Export B2B & DevOps** : Génération de rapports PDF White-Label complets, intégration CI/CD (SARIF/JSON) et connecteur API natif vers **DefectDojo**.
-- **Scans Hautement Agressifs** : Support complet des scripts Nmap Vuln (`--script vuln`) et des templates agressifs Nuclei (Default-logins, Exposures, Misconfigs).
+![Status](https://img.shields.io/badge/Status-Production%20Ready-success)
+![LLM](https://img.shields.io/badge/LLM-Ollama%20%7C%20DeepSeek%20%7C%20OpenAI%20%7C%20Mistral-blue)
+![Architecture](https://img.shields.io/badge/Architecture-FastAPI%20%2B%20SPA%20Vanilla%20JS-purple)
+![Docker](https://img.shields.io/badge/Docker-Ready-brightgreen)
 
 ---
 
-## 💻 Installation Rapide (Automatisée)
+## 🚀 Fonctionnalités
 
-Le script d'installation prend en charge automatiquement de nombreux systèmes et architectures :
-- **OS supportés** : Linux (Debian, Ubuntu, Mint, Kali, Fedora, RHEL, Rocky, CentOS, Arch Linux, Alpine, openSUSE), macOS et Windows (via WSL).
-- **Architectures** : Intel/AMD (`amd64` / `386`) et ARM (`arm64` / `armv6`).
-- **Accélération GPU** : Détection automatique des GPU **NVIDIA** (CUDA) et **AMD** (ROCm/Vulkan). Pour les puces graphiques AMD spécifiques comme **Strix Halo** (série Ryzen AI Max) ou RDNA2/3 (RX 6000/7000), le script configure automatiquement les variables d'environnement nécessaires pour forcer la compatibilité d'Ollama.
+### 🔬 Scan & Découverte
+- **Nmap** : Top 1000 / Fast / Full 65535 ports, détection OS, scripts vuln, évasion pare-feu (fragmentation, leurres, MAC spoofing)
+- **Nuclei** : 10+ catégories de templates (CVE, default-login, exposure, misconfig, injections, RCE, SSL, DNS, réseau...)
+- **Recon** : Subfinder (sous-domaines), Gobuster (répertoires)
+- **SAST** : Semgrep + Bandit pour analyse statique de code
+- **Trivy** : Scan de vulnérabilités conteneurs Docker / filesystem
 
-### Lancement de l'installation
+### 🧠 IA & Analyse
+- **CrewAI Multi-Agents** : Analyst SOC, Lead Pentester, Exploit Validator, Blue Team Defender, Traducteur
+- **RAG (Retrieval-Augmented Generation)** : ChromaDB + 4 standards pré-intégrés (ANSSI, CIS Benchmarks, OWASP Top 10, Kernel Exploits)
+- **6 fournisseurs LLM** : Ollama (local), DeepSeek, OpenAI, Anthropic, Groq, Mistral
+- **Recherche Web Dynamique** : L'IA cherche des PoC publiques en temps réel
+- **Rapports PDF White-Label** : Personnalisation logo, couleurs, nom d'entreprise, multilingue
 
-Exécutez simplement la commande suivante dans votre terminal :
+### 🖥️ Audits Système
+- **PrivEsc Multi-OS** : Audit SSH Linux/macOS/Windows — SUID, capabilities, sudo, kernel exploits, Docker escape
+- **Coffre à PoC** : Génération de scripts de détection inoffensifs par CVE
+- **Analyse ROI** : Calculateur de risque financier (DORA/NIS 2/RGPD/PCI-DSS)
 
+### 🛰️ Architecture Distribuée
+- **Sondes légères** (`sentient_agent.py`) : déploiement sur VPS distant, scan local, retour JSON
+- **Monitoring temps réel** : heartbeat automatique, statut online/offline, scan actif
+- **WebSocket** : progression live avec logs des subprocess en streaming
+
+### 🔒 Sécurité & Conformité
+- **100% On-Premise** : aucune donnée ne quitte votre infrastructure
+- **RBAC** : rôles admin/client, gestion des utilisateurs
+- **Secrets protégés** : clés API isolées dans `report_config.json` (gitignoré)
+- **Sondes authentifiées** : token Bearer, scans HTTP autorisés
+
+### 🎨 Interface
+- **SPA Vanilla JS** : zéro dépendance npm, < 700 lignes de HTML/CSS/JS
+- **3 thèmes** : Slate/Zinc (dark), Light/Clean, Matrix/Hacker (cyberpunk)
+- **Glassmorphisme** : cartes blur, particules canvas, animations fluides
+- **Design system** : variables CSS, composants réutilisables
+
+---
+
+## 🏗️ Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  Navigateur (:8501)                                              │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │  SPA Vanilla JS — Dashboard, Scan, Reports, Chat, Config   │ │
+│  └────────────────────┬───────────────────────────────────────┘ │
+│                       │ REST + WebSocket                         │
+│  ┌────────────────────▼───────────────────────────────────────┐ │
+│  │  FastAPI (api.py)                                          │ │
+│  │  /api/scan  /api/chat  /api/benchmark  /api/probes/status  │ │
+│  └────┬──────────┬──────────┬──────────┬─────────────────────┘ │
+│       │          │          │          │                         │
+│  ┌────▼───┐ ┌───▼────┐ ┌──▼───┐ ┌───▼────────┐                 │
+│  │ Nmap   │ │Nuclei  │ │CrewAI│ │ Ollama/     │                 │
+│  │ +Recon │ │+SAST   │ │agents│ │ DeepSeek    │                 │
+│  │        │ │+Trivy  │ │      │ │ /OpenAI/etc │                 │
+│  └────────┘ └────────┘ └──────┘ └────────────┘                 │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  Sondes distantes (sentient_agent.py :8502)               │   │
+│  │  VPS Paris 🟢 — DMZ Berlin 🔴 — VPN NY 🟢                │   │
+│  │  Heartbeat → /api/probes/heartbeat toutes les 30s         │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 📦 Installation
+
+### 🐳 Docker (recommandé)
+```bash
+git clone https://github.com/magasword22/sentient-ai.git
+cd sentient-ai
+touch audits.db report_config.json
+docker compose up --build -d
+# → http://localhost:8501
+```
+
+### 🖥️ Manuel
+```bash
+python3 -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+uvicorn api:app --host 0.0.0.0 --port 8501
+# → http://localhost:8501
+```
+
+### 🚀 One-liner
 ```bash
 curl -sL https://raw.githubusercontent.com/magasword22/sentient-ai/main/install.sh | bash
 ```
 
-> [!NOTE]
-> - Si exécuté en tant que `root` (ou avec `sudo`), l'application s'installera dans `/opt/sentient` et le CLI sera disponible globalement sous `sentient`.
-> - Si exécuté en tant qu'utilisateur standard, l'application s'installera dans `$HOME/.sentient` et le CLI sera placé dans `$HOME/.local/bin/sentient`.
-
-Une fois installé, l'application est accessible à l'adresse :
-👉 `http://localhost:8501`
-
-### Gestion de l'application (CLI `sentient`)
-
-Un gestionnaire en ligne de commande est installé pour contrôler facilement l'application en arrière-plan :
-
-```bash
-sentient start    # Démarre l'application
-sentient stop     # Arrête l'application
-sentient status   # Affiche l'état d'exécution
-sentient logs     # Affiche les logs en temps réel (Streamlit)
-sentient run      # Lance l'interface en mode debug (premier plan)
-```
-
-*(Si systemd est absent, comme sur macOS, Alpine ou certains conteneurs/WSL, le CLI basculera de manière transparente sur un système de gestion de processus par fichier PID).*
-
 ---
 
-## 🐳 Déploiement avec Docker Compose (Recommandé & Multi-plateforme)
-
-Pour un déploiement instantané sans aucune dépendance système locale (pas besoin d'installer Python, Nmap, Nuclei ou Ollama sur votre machine hôte), vous pouvez utiliser **Docker Compose**. 
-
-### 1. Préparation (Pour une nouvelle machine)
-Si vous clonez le dépôt pour la première fois sur un nouveau système, créez les fichiers de base requis pour la persistance :
-```bash
-touch audits.db report_config.json
-```
-
-### 2. Démarrage
-Lancez l'application et son instance d'IA locale en arrière-plan :
-```bash
-docker compose up --build -d
-```
-
-L'application web Streamlit est alors directement accessible à l'adresse :
-👉 `http://localhost:8501`
-Et le moteur Ollama tourne sur `http://localhost:11434`.
-
-### 3. Accélération Matérielle GPU (Optionnel)
-Par défaut, l'instance Ollama s'exécute sur CPU pour garantir une compatibilité universelle sur toutes les distributions et architectures. Pour activer l'accélération graphique :
-- **GPU Nvidia (CUDA)** : Décommentez le bloc `deploy` dans le fichier `docker-compose.yml`.
-- **GPU AMD (ROCm)** : Décommentez l'image `ollama/ollama:rocm`, configurez les variables d'environnement AMD adaptées à votre carte (ex: `HSA_OVERRIDE_GFX_VERSION` pour les architectures comme *Strix Halo*), et passez les périphériques `/dev/kfd` et `/dev/dri`.
-
----
-
-## 🛠️ Lancement en mode CLI (Intégration CI/CD DevSecOps)
-
-Sentient AI fournit un utilitaire en ligne de commande `sentient_cli.py` pour lancer des audits de sécurité automatisés directement depuis vos pipelines de CI/CD (GitHub Actions, GitLab CI, Jenkins) et exporter les vulnérabilités détectées vers vos outils de sécurité au format standardisé **SARIF**, **JSON** ou **Markdown** :
+## ⚡ Démarrage rapide
 
 ```bash
-# Lancer un audit réseau standard avec rapports Markdown
-python3 sentient_cli.py --target 192.168.1.1 --output rapport.md
+# Lancer l'API
+uvicorn api:app --host 0.0.0.0 --port 8501
 
-# Lancer un scan SAST (Semgrep/Bandit) et exporter au format SARIF pour GitHub Security
-python3 sentient_cli.py --target ./src --sast --format sarif --output results.sarif
+# Login : admin / admin
+# → Dashboard → Lancer un Audit → localhost → Mode Démo → 🚀
 
-# Lancer un scan d'image de conteneur ou de système de fichiers avec Trivy et exporter en JSON
-python3 sentient_cli.py --target debian:latest --trivy --format json --output trivy.json
+# Déployer une sonde distante
+python3 sentient_agent.py --master http://192.168.1.104:8501 --name "VPS Paris"
+
+# CI/CD
+python3 sentient_cli.py --target example.com --format sarif --output results.sarif
 ```
 
 ---
 
-## 🎨 Sécurité RBAC & Thèmes Personnalisés
+## 🧠 Fournisseurs LLM supportés
 
-- **Gestion des Accès & Rôles (RBAC)** : L'accès à l'application Streamlit est sécurisé par un écran de connexion relié à une base locale SQLite. Deux rôles par défaut sont configurés :
-  - `admin` (mot de passe par défaut: `admin`) : accès complet (configuration, audits, planificateur, gestion des utilisateurs).
-  - `client` (mot de passe par défaut: `client`) : accès restreint en lecture seule aux tableaux de bord, rapports et base de connaissances.
-- **Thèmes de l'Interface Graphique** : Personnalisez l'esthétique de votre tableau de bord en choisissant parmi 3 thèmes dans l'onglet **Configuration** :
-  - **Slate/Zinc** : le thème sombre moderne et élégant par défaut.
-  - **Light/Clean** : un thème clair, épuré et professionnel.
-  - **Matrix/Hacker** : une esthétique rétro-futuriste verte inspirée des consoles de hacking.
+| Provider | Modèle | Type |
+|---|---|---|
+| Ollama | llama3.1:8b (local) | Gratuit, GPU |
+| DeepSeek | deepseek-chat | Cloud, pas cher |
+| OpenAI | gpt-4o | Cloud |
+| Anthropic | claude-3-5-sonnet | Cloud |
+| Groq | mixtral-8x7b | Cloud, rapide |
+| Mistral | mistral-large | Cloud, EU |
 
----
-
-## 🔄 Mise à jour et Maintenance
-
-Pour mettre à jour l'application, la base de signatures de vulnérabilités Nuclei et le modèle d'IA local (Ollama) :
-
-```bash
-# Si installé en mode root / global :
-sudo sentient update
-
-# Si installé en mode utilisateur standard :
-sentient update
-```
+Configurable dans **Configuration → Connecteur IA**.
 
 ---
 
-## 📡 Architecture de Scan Distribuée (Sondes légères)
+## 📡 Sondes distantes
 
-Sentient AI supporte l'exécution d'audits décentralisés. Vous pouvez déployer une sonde de scan légère (sans le moteur d'IA/Ollama) sur des serveurs distants ou VPS. La sonde exécute Nmap/Nuclei localement et renvoie les résultats bruts en JSON au serveur principal :
+```bash
+# Sur le VPS
+python3 sentient_agent.py --master http://SERVEUR:8501 --name "VPS Paris"
 
-1. Déployez et lancez la sonde sur le VPS distant :
-   ```bash
-   python3 sentient_agent.py
-   ```
-2. Dans l'onglet **Configuration** de l'interface d'administration de Sentient AI, enregistrez l'adresse de votre sonde (ex: `http://vps-ip:8502`) et le jeton de sécurité associé.
-3. Lors du lancement d'un audit, sélectionnez votre sonde dans le menu déroulant **Sonde d'exécution du scan**.
+# Dans l'interface
+# Configuration → Sondes → Ajouter
+# Lancer un Audit → Sonde → VPS Paris
+# Monitoring → 🛰️ voir l'état en temps réel
+```
 
 ---
 
-## 🛠️ Utilisation Manuelle (Pour développeurs)
+## 📂 Structure du projet
 
-Si vous souhaitez faire tourner le code manuellement sans le script d'installation :
-
-1. Assurez-vous d'avoir installé Nmap, Nuclei, Python 3.10+ et Ollama.
-2. Clonez ce dépôt :
-```bash
-git clone https://github.com/magasword22/sentient-ai.git
-cd sentient-ai
 ```
-3. Créez votre environnement et installez les prérequis :
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
-4. Lancez l'interface web :
-```bash
-streamlit run app.py
+sentient-ai/
+├── api.py              # Backend FastAPI (REST + WebSocket)
+├── static/index.html   # Frontend SPA (Vanilla JS, glassmorphism)
+├── sentient_agent.py   # Sonde de scan distante
+├── sentient_cli.py     # CLI pour CI/CD
+├── scanner.py          # Nmap, Nuclei, SAST, Trivy
+├── agents.py           # CrewAI multi-agents + LLM providers
+├── chat.py             # Assistant virtuel RAG
+├── rag.py              # ChromaDB vector store
+├── autotune.py         # Optimisation matérielle + télémétrie
+├── database.py         # SQLite (scans, users, schedules)
+├── compliance.py       # Cartographie conformité
+├── roi_calculator.py   # Calculateur de risque financier
+├── host_auditor.py     # Audit système LPE via SSH
+├── report_config.py    # Configuration White-Label
+├── standards/          # 4 standards de sécurité (751 lignes)
+│   ├── anssi_guide.md
+│   ├── cis_benchmarks.md
+│   ├── owasp_top_10.md
+│   └── kernel_exploits.md
+├── assets/             # Logo et ressources
+├── reports/            # Rapports PDF générés
+├── rag_db/             # Base vectorielle ChromaDB
+├── Dockerfile
+├── docker-compose.yml
+└── requirements.txt
 ```
 
-## 📋 Feuille de Route & Backlog
-
-Pour suivre l'avancement du projet, les fonctionnalités déjà implémentées (justifications DORA/NIS 2/RGPD, sélections de vulnérabilités multi-catégories) ainsi que les évolutions futures planifiées (hybridation cloud, RAG étendu, scans authentifiés, intégration SAST/DevSecOps), veuillez consulter le fichier [TODO.md](TODO.md).
+---
 
 ## 📜 Licence
-Développé pour l'orchestration avancée de Red Teaming.
+
+Développé pour l'orchestration avancée de Red Teaming. Usage interne et éducatif.

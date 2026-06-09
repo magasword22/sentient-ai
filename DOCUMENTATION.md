@@ -1,193 +1,387 @@
-# 📖 Documentation de Référence : Sentient AI
+# 📖 Documentation de Référence — Sentient AI v3
 
-Ce document présente un guide complet d'utilisation, de configuration et d'intégration de **Sentient AI**, la plateforme d'audit de sécurité automatisée (PTaaS) propulsée par l'intelligence artificielle locale.
+> Architecture FastAPI + SPA Vanilla JS — Juin 2026
 
 ---
 
 ## 🗺️ Table des Matières
-1. [Architecture & Concept Cible](#1-architecture--concept-cible)
-2. [Déploiement & Installation](#2-déploiement--installation)
-3. [Guide d'Utilisation des Scans Réseau & Web](#3-guide-dutilisation-des-scans-réseau--web)
-4. [Sécurité DevSecOps (SAST & Trivy)](#4-sécurité-devsecops-sast--trivy)
-5. [Audits Système & Élévation de Privilèges (LPE)](#5-audits-système--élévation-de-privilèges-lpe)
-6. [Le Coffre à PoC & Détection (Vérification Passive)](#6-le-coffre-à-poc--détection-vérification-passive)
-7. [Analyse Risque ROI, RAG & Planificateur](#7-analyse-risque-roi-rag--planificateur)
-8. [Intégrations CI/CD, Ticketing & Partage](#8-intégrations-cicd-ticketing--partage)
-9. [Configuration Avancée & Personnalisation (White-Label)](#9-configuration-avancée--personnalisation-white-label)
-10. [FAQ & Résolution des Problèmes (Troubleshooting)](#10-faq--résolution-des-problèmes-troubleshooting)
+1. [Architecture](#1-architecture)
+2. [Installation & Déploiement](#2-installation--déploiement)
+3. [Interface Web](#3-interface-web)
+4. [API Reference](#4-api-reference)
+5. [Scans Réseau & Web](#5-scans-réseau--web)
+6. [Audits Système (PrivEsc)](#6-audits-système-privesc)
+7. [IA & LLM](#7-ia--llm)
+8. [Base RAG](#8-base-rag)
+9. [Sondes Distantes & Monitoring](#9-sondes-distantes--monitoring)
+10. [CI/CD & CLI](#10-cicd--cli)
+11. [Configuration & White-Label](#11-configuration--white-label)
+12. [Sécurité](#12-sécurité)
+13. [FAQ & Troubleshooting](#13-faq--troubleshooting)
 
 ---
 
-## 1. Architecture & Concept Cible
+## 1. Architecture
 
-Sentient AI combine des scanners traditionnels éprouvés et des agents d'intelligence artificielle locale pour automatiser la chaîne d'audit cyber sans compromettre la confidentialité des données (100% On-Premise).
+```
+┌──────────────────────────────────────────────────────────┐
+│  Navigateur → SPA Vanilla JS (static/index.html)         │
+│  Glassmorphism • Particules canvas • 3 thèmes            │
+└────────────────────┬─────────────────────────────────────┘
+                     │ REST + WebSocket
+┌────────────────────▼─────────────────────────────────────┐
+│  FastAPI (api.py) — 30+ endpoints                        │
+│  /api/scan  /api/chat  /api/benchmark  /api/probes/...   │
+└──┬──────────┬──────────┬──────────┬──────────────────────┘
+   │          │          │          │
+┌──▼────┐ ┌──▼─────┐ ┌─▼──────┐ ┌─▼───────────┐
+│ Nmap  │ │Nuclei  │ │CrewAI  │ │Ollama/API    │
+│+Recon │ │+SAST   │ │5 agents│ │DeepSeek/...  │
+│       │ │+Trivy  │ │        │ │              │
+└───────┘ └────────┘ └────────┘ └──────────────┘
 
-```mermaid
-graph TD
-    UI[🖥️ Dashboard Streamlit] --> Crew[🧠 Moteur Agentique CrewAI]
-    Crew --> Scanner[⚙️ Pipeline de Scan]
-    Scanner --> Local[Sondes Locales: Nmap, Nuclei, SAST, Trivy]
-    Scanner --> Remote[📡 Sondes Distantes: sentient_agent.py]
-    Crew --> RAG[💾 Base ChromaDB RAG]
+┌──────────────────────────────────────────────────────────┐
+│  Sondes distantes (sentient_agent.py :8502)              │
+│  Heartbeat → /api/probes/heartbeat toutes les 30s        │
+└──────────────────────────────────────────────────────────┘
 ```
 
-### Les Agents IA Déployés (CrewAI + Ollama)
-* **Analyste SOC Senior (SOC Analyst)** : Analyse les vulnérabilités brutes, évalue leur sévérité contextuelle et élimine les faux positifs.
-* **Lead Pentester (Reporter)** : Rédige le rapport d'audit au format Markdown en traduisant les résultats bruts en recommandations exploitables.
-* **Exploit Validator** : Évalue la possibilité de concevoir un vecteur de validation inoffensif pour confirmer la faille.
-* **Blue Team Defender** : Conçoit les règles de remédiation technique (WAF, pare-feu, signatures Yara).
-* **Traducteur Cyber (Translator)** : Traduit les rapports terminés dans les langues sélectionnées (FR, EN, ES, DE) sans altérer les structures techniques.
+### Composants
+| Fichier | Rôle |
+|---|---|
+| `api.py` | Backend FastAPI — REST + WebSocket |
+| `static/index.html` | Frontend SPA — Vanilla JS, CSS embarqué |
+| `sentient_agent.py` | Sonde de scan distante légère |
+| `sentient_cli.py` | CLI pour intégration CI/CD |
+| `scanner.py` | Orchestration Nmap, Nuclei, SAST, Trivy |
+| `agents.py` | CrewAI multi-agents + LLM providers |
+| `rag.py` | ChromaDB — ingestion et requêtes vectorielles |
+| `database.py` | SQLite — scans, users, schedules |
+| `autotune.py` | Optimisation matérielle + télémétrie système |
 
 ---
 
-## 2. Déploiement & Installation
+## 2. Installation & Déploiement
 
-### Option A : Déploiement Docker Compose (Recommandé)
-Docker Compose encapsule toutes les dépendances (Python, Nmap, Nuclei, Trivy, Semgrep, etc.) et configure Ollama de manière isolée.
+### Docker (recommandé)
+```bash
+git clone https://github.com/magasword22/sentient-ai.git
+cd sentient-ai
+touch audits.db report_config.json
+docker compose up --build -d
+# → http://localhost:8501 (interface)
+# → http://localhost:11434 (Ollama)
+```
 
-1. Créez les fichiers persistants vides sur l'hôte :
-   ```bash
-   touch audits.db report_config.json
-   ```
-2. Démarrez l'orchestration :
-   ```bash
-   docker compose up -d --build
-   ```
-3. Accédez à l'interface Streamlit sur `http://localhost:8501`.
+### Manuel (développement)
+```bash
+python3 -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+uvicorn api:app --host 0.0.0.0 --port 8501
+```
 
-### Option B : Script TUI Interactif (`install.sh`)
-Exécutez l'installateur interactif en ligne :
+### One-liner
 ```bash
 curl -sL https://raw.githubusercontent.com/magasword22/sentient-ai/main/install.sh | bash
 ```
-Ce script détectera votre système d'exploitation, votre architecture (Intel/AMD/ARM) et configurera le GPU Nvidia (CUDA) ou AMD (ROCm) pour accélérer la génération IA.
+
+### Accès réseau
+L'interface est accessible depuis n'importe quel appareil du LAN :
+```
+http://192.168.1.104:8501
+```
+L'IP s'affiche dans la sidebar (cliquable pour copier).
 
 ---
 
-## 3. Guide d'Utilisation des Scans Réseau & Web
+## 3. Interface Web
 
-### Configuration du Périmètre
-1. Accédez à l'onglet **⚡ Lancer un Audit**.
-2. Renseignez la cible sous forme d'adresse IP, plage CIDR, ou nom de domaine (ex: `192.168.1.0/24` ou `target.local`).
-3. Sélectionnez le **Mode Nmap** :
-   - *Aucun* : Scan Nuclei direct.
-   - *Rapide* : Scan d'hôte ping basique.
-   - *Standard* : Scan des 1000 ports les plus fréquents.
-   - *Aggressif* : Scan complet avec détection d'OS et de versions (`-O -sV`).
+### Pages
+| Page | Description |
+|---|---|
+| 📊 Dashboard | KPIs, historique des scans, graphiques |
+| ⚡ Lancer un Audit | Formulaire complet de scan |
+| 🖥️ Audit PrivEsc | Connexion SSH pour audit système |
+| 🧪 Coffre à PoC | Génération de scripts de détection par CVE |
+| 💰 Analyse ROI | Calculateur de risque financier |
+| 📅 Planificateur | Scans récurrents automatisés |
+| 📂 Rapports | Liste et téléchargement des PDF |
+| 💬 Assistant IA | Chat RAG avec contexte des audits |
+| 🧠 Base RAG | Upload et activation de documents |
+| 📡 Diagnostic | CPU, RAM, GPU, Ollama, benchmark IA |
+| 🛰️ Monitoring | État des sondes distantes |
+| ⚙️ Configuration | White-label, LLM, webhook, users, sondes |
 
-### Évasion de Pare-feu & Authentification
-* **Fragmentation (`-f`)** : Scinde les paquets réseau pour contourner la détection de signatures par les pare-feux/IDS.
-* **Leurres (`-D`)** : Simule des requêtes réseau provenant d'adresses factices pour masquer l'IP de la sonde.
-* **Usurpation MAC** : Permet de falsifier l'adresse matérielle réseau de la sonde d'audit.
-* **Scans Authentifiés** : Fournissez des Cookies de session ou des en-têtes HTTP (ex: `Authorization: Bearer <token>`) pour auditer les routes web protégées.
+### Thèmes
+- **Slate/Zinc** (défaut) : sombre professionnel
+- **Light/Clean** : clair épuré
+- **Matrix/Hacker** : cyberpunk, scanlines CRT
 
----
-
-## 4. Sécurité DevSecOps (SAST & Trivy)
-
-Sentient AI intègre des modules d'analyse de code et d'images de conteneur pour sécuriser la chaîne d'intégration continue.
-
-### Analyse Statique (SAST)
-* **Usage** : Cochez l'option *SAST* et renseignez le chemin local du code source (ex: `/src/app`).
-* **Moteurs** : `Semgrep` (analyse structurelle multilingue) et `Bandit` (analyse de vulnérabilités spécifiques à Python) s'exécutent pour détecter des injections SQL, secrets codés en dur ou mauvaises pratiques.
-
-### Audit de Conteneurs (Trivy)
-* **Usage** : Renseignez le nom de l'image de conteneur (ex: `nginx:alpine`) ou le dossier racine d'un conteneur à auditer.
-* **Détection** : Trivy identifie les paquets OS obsolètes, les failles de bibliothèques et les configurations Docker non sécurisées.
+### Raccourcis clavier
+- `Ctrl+Enter` : lancer le scan
 
 ---
 
-## 5. Audits Système & Élévation de Privilèges (LPE)
+## 4. API Reference
 
-Cette fonctionnalité permet de connecter Sentient AI à une machine cible via SSH afin d'analyser la surface d'attaque locale et de détecter les vecteurs d'élévation de privilèges (LPE).
+### Authentification
+| Méthode | Endpoint | Description |
+|---|---|---|
+| POST | `/api/auth/login` | `{"username":"admin","password":"admin"}` |
 
-### Informations Collectées et Analysées
+### Scans
+| Méthode | Endpoint | Description |
+|---|---|---|
+| POST | `/api/scan` | Lancer un scan (voir ScanRequest) |
+| GET | `/api/scan/{id}` | Statut d'un scan |
+| WS | `/ws/scan/{id}` | Progression live + logs |
 
-| Système | Éléments Audités | Objectif Sécurité |
-| :--- | :--- | :--- |
-| **Linux** | Binaires SUID/SGID, capabilities Linux, socket Docker accessible, historique Bash/Zsh, configurations Sudo sans mot de passe, version de noyau (Kernel). | Identification de vulnérabilités locales majeures (PwnKit, Dirty Pipe, etc.). |
-| **macOS** | Statut du SIP (System Integrity Protection), droits d'accès TCC, configurations Sudo, paquets Homebrew obsolètes, fichiers de config sensibles. | Durcissement de l'hôte et détection de mauvaises configurations de privilèges. |
-| **Windows** | Clés AlwaysInstallElevated dans le Registre, Unquoted Service Paths, correctifs de sécurité (Hotfixes), secrets Winlogon (Autologon), PowerShell history. | Identification de chemins de privilèges système défaillants. |
+### IA
+| Méthode | Endpoint | Description |
+|---|---|---|
+| POST | `/api/chat` | Assistant virtuel RAG |
+| POST | `/api/benchmark` | Test de vitesse tokens/sec |
+| POST | `/api/poc` | Génération PoC par CVE |
 
-### Déroulement de l'Audit local
-1. Renseignez l'IP, le nom d'utilisateur SSH et le mot de passe (ou téléversez la clé privée SSH).
-2. Cliquez sur **Exécuter l'audit système**.
-3. Sentient AI exécute un collecteur léger non destructif [host_auditor.py](file:///home/magsword22/sentient/sentient-ai/host_auditor.py) adapté à l'OS cible.
-4. Les données brutes structurées sont passées à une CrewAI dédiée enrichie par notre référentiel vectoriel local RAG ([standards/kernel_exploits.md](file:///home/magsword22/sentient/sentient-ai/standards/kernel_exploits.md)).
-5. Un rapport d'audit interne complet avec des playbooks de remédiation est généré.
+### RAG
+| Méthode | Endpoint | Description |
+|---|---|---|
+| POST | `/api/rag/upload` | Upload document |
+| GET | `/api/rag/documents` | Liste documents |
+| POST | `/api/rag/activate` | Activer les 4 standards |
+
+### Sondes
+| Méthode | Endpoint | Description |
+|---|---|---|
+| POST | `/api/probes` | Ajouter une sonde |
+| DELETE | `/api/probes/{name}` | Supprimer |
+| POST | `/api/probes/heartbeat` | Heartbeat (appelé par l'agent) |
+| GET | `/api/probes/status` | État de toutes les sondes |
+
+### Autres
+| Méthode | Endpoint | Description |
+|---|---|---|
+| GET | `/api/history` | Historique des scans |
+| GET/POST | `/api/config` | Configuration |
+| GET/POST/DELETE | `/api/users` | Gestion utilisateurs |
+| GET/POST/DELETE | `/api/schedules` | Planifications |
+| GET | `/api/reports` | Liste rapports PDF |
+| GET | `/api/reports/{file}` | Télécharger rapport |
+| GET | `/api/telemetry` | Métriques système |
+| GET | `/api/roi` | Calculateur ROI |
+| GET | `/api/ip` | IP locale |
+| POST | `/api/privesc` | Audit PrivEsc SSH |
 
 ---
 
-## 6. Le Coffre à PoC & Détection (Vérification Passive)
+## 5. Scans Réseau & Web
 
-L'onglet **🧪 Coffre à PoC & Détection** permet de générer de manière sécurisée des vérificateurs de vulnérabilités.
+### Paramètres de scan (ScanRequest)
+```json
+{
+  "target": "192.168.1.0/24",
+  "nmap_mode": "T4",
+  "nuclei_mode": "full",
+  "nuclei_tags": ["cve", "rce", "sqli"],
+  "demo_mode": false,
+  "probe_url": "",
+  "use_agressive": false,
+  "use_vuln_script": false,
+  "use_sast": false,
+  "use_trivy": false,
+  "evasion_fragment": false,
+  "evasion_decoy": "",
+  "evasion_mac": "",
+  "auth_cookies": "",
+  "use_subfinder": false,
+  "use_gobuster": false,
+  "report_lang": "Français"
+}
+```
 
-### Fonctionnement
-* **Saisie** : Entrez un identifiant de vulnérabilité standardisé (ex: `CVE-2021-44228`).
-* **Analyse IA** : Sentient AI consulte ses connaissances et propose une description détaillée ainsi qu'un script de détection entièrement **passif et inoffensif** (ex: vérification de version de bibliothèque ou de clé de registre).
-* **Sécurité** : La génération interdit strictement les charges utiles actives (reverse shell, injection destructive) conformément aux normes éthiques de l'outil.
-* **Téléchargement** : Le script résultant (Python `.py` ou Bash `.sh`) est téléchargeable en un clic pour vos tests d'audit.
+### Tags Nuclei disponibles
+`cve`, `default-login`, `exposure`, `misconfig`, `injections`, `rce`, `redirect`, `ssl`, `dns`, `network`
+
+### Modes Nmap
+- `T4` — Top 1000 ports (recommandé)
+- `Fast` — Top 100 ports
+- `Full` — 65535 ports
 
 ---
 
-## 7. Analyse Risque ROI, RAG & Planificateur
+## 6. Audits Système (PrivEsc)
 
-### Calculateur de Risque Financier (ROI)
-L'outil calcule l'exposition financière totale associée aux vulnérabilités selon le secteur d'activité, la taille de l'entreprise et la sensibilité des données.
-* Il compare le coût estimé d'une violation de données (NIS 2 / RGPD) face au coût de remédiation technique, affichant un indicateur de ROI pour aider à la prise de décision.
+### Connexion SSH
+```json
+{
+  "host": "192.168.1.10",
+  "port": 22,
+  "username": "root",
+  "password": "",
+  "key_path": "/home/user/.ssh/id_rsa"
+}
+```
 
-### Base de Connaissances (RAG)
-Sentient AI utilise la base vectorielle ChromaDB pour contextualiser les analyses de l'IA.
-* **Ingestion** : Téléversez des documents PDF ou Markdown dans l'onglet *Base de Connaissances*.
-* **Standards Pré-intégrés** : L'onglet propose d'indexer en un clic les guides ANSSI, les benchmarks de sécurité CIS et le guide des exploits noyau de Sentient AI.
-
-### Planificateur d'Audits Récurrents
-Planifiez des scans quotidiens, hebdomadaires ou mensuels sur vos cibles. Un service d'arrière-plan permanent SQLite surveille les tâches programmées et exécute automatiquement les audits, envoyant des rapports d'alerte en cas d'apparition de failles de sévérité élevée.
+### Éléments audités
+| OS | Éléments |
+|---|---|
+| Linux | SUID/SGID, capabilities, sudo, kernel, cron, Docker socket |
+| macOS | SIP, TCC, sudo, Homebrew, configs sensibles |
+| Windows | Registre, services, hotfixes, Autologon, PowerShell history |
 
 ---
 
-## 8. Intégrations CI/CD, Ticketing & Partage
+## 7. IA & LLM
 
-### Connecteurs de Ticketing
-Après chaque audit, vous pouvez exporter instantanément les vulnérabilités vers :
-* **Jira** (génération de tickets de correctif).
-* **GitHub Issues** & **GitLab Issues** (assignation des anomalies aux développeurs).
+### Fournisseurs supportés
+| Provider | Modèle par défaut | API Base |
+|---|---|---|
+| Ollama | llama3.1:8b | localhost:11434 |
+| DeepSeek | deepseek-chat | api.deepseek.com/v1 |
+| OpenAI | gpt-4o | api.openai.com/v1 |
+| Anthropic | claude-3-5-sonnet | api.anthropic.com |
+| Groq | mixtral-8x7b | api.groq.com |
+| Mistral | mistral-large | api.mistral.ai/v1 |
 
-### Liens de Partage Temporaires
-Générez des liens chiffrés expirants vers les rapports PDF/Markdown hébergés localement. Ces liens permettent à des tiers (clients, directeurs) de lire le rapport en mode lecture seule sans nécessiter de compte d'administration sur le portail principal.
+### Configuration
+Dans **Configuration → Connecteur IA** :
+1. Sélectionner le fournisseur
+2. Saisir le modèle
+3. Saisir la clé API
 
-### Intégration CI/CD avec le CLI
-Utilisez le script [sentient_cli.py](file:///home/magsword22/sentient/sentient-ai/sentient_cli.py) au sein de vos pipelines de build (GitLab CI / GitHub Actions) :
+Le switch est automatique : tous les scans et rapports utilisent le LLM configuré.
+
+### Benchmark IA
+Depuis **Diagnostic → Benchmark**, mesurer la vitesse :
+- ≥ 25 tok/s : 🚀 Exceptionnel
+- 10-25 tok/s : ⚡ Correct
+- < 10 tok/s : ⚠️ Lent
+
+---
+
+## 8. Base RAG
+
+### Standards pré-intégrés (désactivés par défaut)
+| Standard | Contenu |
+|---|---|
+| 🇫🇷 ANSSI | BP-028 Linux, BP-042 AD, guide hygiène |
+| 🏛️ CIS Benchmarks v8 | SSH, sysctl, filesystem, auditd |
+| 🕸️ OWASP Top 10:2021 | 10 vulnérabilités + remédiation |
+| 🧠 Kernel Exploits | CVE récentes, GTFOBins, Docker escape |
+
+### Activation
+1. Aller dans **🧠 Base RAG**
+2. Cliquer **Activer les standards**
+3. L'IA peut maintenant référencer ces documents dans ses réponses
+
+---
+
+## 9. Sondes Distantes & Monitoring
+
+### Déploiement d'une sonde
 ```bash
-# Export au format standard SARIF pour GitHub Security Center
-python3 sentient_cli.py --target ./src-code --sast --format sarif --output results.sarif
+python3 sentient_agent.py \
+  --master http://192.168.1.104:8501 \
+  --name "VPS Paris" \
+  --port 8502 \
+  --token sentient_secure_token_2026
+```
+
+### Variables d'environnement
+- `MASTER_URL` — URL du serveur principal
+- `AGENT_NAME` — nom de la sonde
+- `AGENT_PORT` — port d'écoute (défaut 8502)
+- `AGENT_TOKEN` — token d'authentification
+
+### Heartbeat
+La sonde envoie un heartbeat au serveur toutes les 30 secondes. Si aucun heartbeat pendant 2 minutes → marquée 🔴 Offline.
+
+### Monitoring
+Page **🛰️ Monitoring** :
+- 🟢 Online / 🔴 Offline
+- Scan actif avec cible
+- URL de la sonde
+
+---
+
+## 10. CI/CD & CLI
+
+### `sentient_cli.py`
+```bash
+# Scan réseau → Markdown
+python3 sentient_cli.py --target example.com --output rapport.md
+
+# SAST → SARIF (GitHub Security)
+python3 sentient_cli.py --target ./src --sast --format sarif --output results.sarif
+
+# Trivy → JSON
+python3 sentient_cli.py --target nginx:alpine --trivy --format json --output trivy.json
+
+# Évasion pare-feu
+python3 sentient_cli.py --target example.com --evasion --format markdown
 ```
 
 ---
 
-## 9. Configuration Avancée & Personnalisation (White-Label)
+## 11. Configuration & White-Label
 
-### Rapports White-Label (Marque Blanche)
-Personnalisez les livrables PDF destinés à vos clients depuis l'onglet **Configuration** :
-* Téléversez le logo de votre cabinet d'audit.
-* Saisissez le nom de votre entreprise et personnalisez le texte de pied de page.
-* Définissez le code couleur CSS de votre marque (couleur primaire, secondaire).
+### Marque blanche
+Dans **Configuration** :
+- Logo personnalisé (upload)
+- Nom d'entreprise
+- Texte pied de page
+- Couleur principale
+- Thème UI
 
-### Thèmes de l'Interface Web
-Basculez à tout moment l'interface Streamlit entre trois esthétiques distinctes :
-1. **Slate/Zinc** : Sombre, épuré et moderne.
-2. **Light/Clean** : Clair, parfait pour la lisibilité professionnelle.
-3. **Matrix/Hacker** : Thème vintage vert et noir inspiré des terminaux de sécurité.
+### Organisation
+- Secteur d'activité (Finance, Santé, E-commerce, etc.)
+- Taille d'entreprise (Startup → Grande Entreprise)
+- Sensibilité des données (Publique → Médicale)
+
+### Connecteurs
+- **LLM** : fournisseur, modèle, clés API
+- **Webhook** : Slack, Discord, Teams, Generic
+- **Sondes** : ajout/suppression de sondes distantes
+- **Utilisateurs** : création/suppression (admin uniquement)
 
 ---
 
-## 10. FAQ & Résolution des Problèmes (Troubleshooting)
+## 12. Sécurité
 
-### Q : Le conteneur Ollama consomme 100% de mon processeur et est très lent.
-* **R** : Par défaut, Ollama s'exécute sur CPU. Assurez-vous d'avoir configuré l'accélération matérielle. Pour les GPU AMD, vérifiez que le périphérique `/dev/kfd` et `/dev/dri` est bien monté dans le fichier `docker-compose.yml` et que la variable `HSA_OVERRIDE_GFX_VERSION` correspond à votre génération de puce.
+### Secrets
+- `report_config.json` — gitignoré, stocke les clés API et configuration
+- `audits.db` — gitignoré, historique des scans et utilisateurs
+- Les clés API ne sont jamais loggées ni exposées dans les rapports
 
-### Q : La connexion SSH vers ma cible Windows échoue.
-* **R** : Vérifiez que le service OpenSSH est bien démarré sur Windows et que l'utilisateur dispose des privilèges requis pour l'exécution à distance de scripts PowerShell (Bypass ExecutionPolicy).
+### Réseau
+- Port 8501 : interface web (ouvert par défaut)
+- Port 8502 : sonde distante (à ouvrir manuellement si distant)
+- Port 11434 : Ollama (localhost uniquement)
+- Port 22 : SSH (pour audit PrivEsc)
 
-### Q : Où sont stockés mes rapports d'audits ?
-* **R** : Tous les rapports (PDF et Markdown) sont persistés localement dans le dossier `reports/` de l'application et enregistrés dans la base SQLite locale `audits.db`.
+### Authentification
+- Session locale SQLite
+- Rôles : admin (full), client (lecture)
+- Mots de passe hashés
+
+---
+
+## 13. FAQ & Troubleshooting
+
+### Q : Ollama consomme 100% CPU
+> Assurez-vous que l'accélération GPU est activée. Vérifier avec `ollama list` et `rocm-smi`.
+
+### Q : Le scan distant échoue
+> Vérifier que `sentient_agent.py` tourne sur la machine distante et que le port 8502 est ouvert. Vérifier le token.
+
+### Q : Comment changer de LLM ?
+> Configuration → Connecteur IA → sélectionner le fournisseur → sauvegarder. Tous les scans suivants utiliseront le nouveau LLM.
+
+### Q : Où sont stockés les rapports ?
+> Dans le dossier `reports/`. Accessibles via l'interface (📂 Rapports) ou directement sur le disque.
+
+### Q : Comment déployer plusieurs sondes ?
+> Lancer `sentient_agent.py` sur chaque VPS avec des noms différents. Les ajouter dans Configuration → Sondes. Le monitoring affichera toutes les sondes.
+
+### Q : Les standards RAG sont-ils chargés automatiquement ?
+> Non. Ils sont présents dans `standards/` mais doivent être activés manuellement dans l'interface (🧠 Base RAG → Activer). Ceci pour éviter de consommer de la RAM inutilement.
