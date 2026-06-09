@@ -367,8 +367,11 @@ textarea.input{resize:vertical;min-height:60px;font-family:var(--font-mono);font
       <p style="color:var(--text-muted);margin-bottom:24px;">Ingestion de documents de sécurité pour enrichir l'IA</p>
       <div class="glass-card">
         <input type="file" id="rag-file" style="display:none" onchange="uploadRag()">
-        <button class="btn btn-primary btn-full" onclick="document.getElementById('rag-file').click()">📤 Téléverser un document (PDF, MD, TXT)</button>
-        <div id="rag-list" style="margin-top:20px;"><div class="empty-state"><div class="empty-state-icon">🧠</div><div class="empty-state-title">Aucun document indexé</div></div></div>
+        <div class="btn-group" style="margin-bottom:16px;">
+          <button class="btn btn-primary" onclick="document.getElementById('rag-file').click()">📤 Téléverser un document</button>
+          <button class="btn btn-secondary" id="rag-activate-btn" onclick="activateStandards()">🧠 Activer les standards (ANSSI, CIS, OWASP, Kernel Exploits)</button>
+        </div>
+        <div id="rag-list" style="margin-top:20px;"><div class="empty-state"><div class="empty-state-icon">🧠</div><div class="empty-state-title">Aucun document indexé</div><div class="empty-state-desc">Téléversez vos propres documents ou activez les standards de sécurité intégrés.</div></div></div>
       </div>
     </div>
 
@@ -570,7 +573,8 @@ async function loadReports(){try{const r=await fetch(API+'/api/reports').then(r=
 
 // ── RAG ────────────────────────────────────────────────────────────────
 async function uploadRag(){const f=document.getElementById('rag-file').files[0];if(!f)return;const fd=new FormData();fd.append('file',f);await fetch(API+'/api/rag/upload',{method:'POST',body:fd});toast(f.name+' uploadé','success');loadRagDocs()}
-async function loadRagDocs(){try{const d=await fetch(API+'/api/rag/documents').then(r=>r.json());const el=document.getElementById('rag-list');el.innerHTML=(d||[]).length===0?'<div class="empty-state"><div class="empty-state-icon">🧠</div><div class="empty-state-title">Aucun document</div></div>':d.map(f=>'<div class="glass-panel" style="margin-bottom:6px;">📄 '+f+'</div>').join('')}catch(e){}}
+async function loadRagDocs(){try{const d=await fetch(API+'/api/rag/documents').then(r=>r.json());const el=document.getElementById('rag-list');el.innerHTML=(d||[]).length===0?'<div class="empty-state"><div class="empty-state-icon">🧠</div><div class="empty-state-title">Aucun document indexé</div><div class="empty-state-desc">Téléversez vos propres documents ou activez les standards de sécurité intégrés.</div></div>':d.map(f=>'<div class="glass-panel" style="margin-bottom:6px;">📄 '+f+'</div>').join('')}catch(e){}}
+async function activateStandards(){const btn=document.getElementById('rag-activate-btn');btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Activation...';try{const r=await fetch(API+'/api/rag/activate',{method:'POST'});const d=await r.json();toast(d.ingested+'/'+d.total+' standards activés !','success');btn.textContent='✅ Standards activés'}catch(e){toast('Erreur activation','error');btn.disabled=false;btn.textContent='🧠 Activer les standards'}}
 
 // ── Telemetry ──────────────────────────────────────────────────────────
 function bar(val,pct){return '<div class="progress-bar" style="margin:4px 0;"><div class="progress-fill" style="width:'+Math.min(pct,100)+'%;'+(pct>90?'background:var(--error)':'')+'"></div></div>'}

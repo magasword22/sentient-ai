@@ -195,6 +195,23 @@ async def upload_rag(file: UploadFile):
 def list_rag_docs():
     return rag.list_documents() if hasattr(rag, 'list_documents') else []
 
+@app.post("/api/rag/activate")
+def activate_standards():
+    """Ingère les 4 standards de sécurité dans ChromaDB (ANSSI, CIS, OWASP, Kernel Exploits)."""
+    standards_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "standards")
+    files = ["anssi_guide.md", "cis_benchmarks.md", "owasp_top_10.md", "kernel_exploits.md"]
+    count = 0
+    for fname in files:
+        path = os.path.join(standards_dir, fname)
+        if os.path.exists(path):
+            try:
+                with open(path, "rb") as f:
+                    rag.add_document(f.read(), fname)
+                count += 1
+            except Exception:
+                pass
+    return {"status": "ok", "ingested": count, "total": len(files)}
+
 # ── Schedule ─────────────────────────────────────────────────────────────
 @app.get("/api/schedules")
 def schedules():
