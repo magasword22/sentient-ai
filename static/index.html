@@ -93,8 +93,13 @@ textarea.input{resize:vertical;min-height:60px;font-family:var(--font-mono);font
 .stepper-step:not(:last-child)::after{content:'';position:absolute;top:13px;left:calc(50% + 8px);width:calc(100% - 16px);height:2px;background:var(--border);z-index:0}
 .stepper-step.done:not(:last-child)::after{background:var(--success)}
 
-.progress-bar{width:100%;height:8px;background:var(--bg-input);border-radius:var(--radius-full);overflow:hidden;border:1px solid var(--border);margin:16px 0}
-.progress-fill{height:100%;border-radius:var(--radius-full);background:linear-gradient(90deg,var(--accent),var(--accent-light));background-size:200% 100%;animation:shimmer 2s linear infinite;transition:width 0.5s ease}
+.progress-bar{width:100%;height:10px;background:var(--bg-input);border-radius:var(--radius-full);overflow:hidden;border:1px solid var(--border);margin:16px 0;position:relative;box-shadow:inset 0 1px 3px rgba(0,0,0,0.3)}
+.progress-fill{height:100%;border-radius:var(--radius-full);background:linear-gradient(90deg,var(--accent),#8b5cf6 30%,var(--accent-light) 50%,#c084fc 70%,var(--accent) 100%);background-size:300% 100%;animation:shimmer 1.5s linear infinite,progressGlow 2s ease-in-out infinite;transition:width 0.6s cubic-bezier(0.22,0.61,0.36,1);position:relative}
+/* Glow at the leading edge */
+.progress-fill::after{content:'';position:absolute;right:0;top:0;bottom:0;width:30px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.4));border-radius:0 var(--radius-full) var(--radius-full) 0;animation:edgePulse 0.8s ease-in-out infinite}
+@keyframes shimmer{0%{background-position:100% 0}100%{background-position:-200% 0}}
+@keyframes progressGlow{0%,100%{box-shadow:0 0 8px var(--accent-glow)}50%{box-shadow:0 0 20px var(--accent-glow),0 0 40px rgba(124,58,237,0.2)}}
+@keyframes edgePulse{0%,100%{opacity:0.4}50%{opacity:1}}
 
 .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:var(--radius-full);font-size:0.7rem;font-weight:600;letter-spacing:0.02em;text-transform:uppercase}
 .badge-crit{background:rgba(239,68,68,0.12);color:#ef4444;border:1px solid rgba(239,68,68,0.3)}
@@ -538,7 +543,13 @@ async function launchScan(){
     initStepper();
     const proto=location.protocol==='https:'?'wss':'ws';
     _ws=new WebSocket(proto+'://'+location.host+'/ws/scan/'+scan_id);
-    _ws.onmessage=(e)=>{const d=JSON.parse(e.data);updateStepper(d.steps||[]);document.getElementById('progress-fill').style.width=d.progress+'%';document.getElementById('scan-status-text').textContent=d.status==='done'?'✅ Terminé':d.status==='error'?'❌ Erreur':'🔄 En cours...';
+    _ws.onmessage=(e)=>{const d=JSON.parse(e.data);updateStepper(d.steps||[]);const p=d.progress;
+      // Smooth fake-easing: jumps feel faster
+      const displayP = p<10?p*2:p<50?p+5:p<80?Math.min(95,p+3):p;
+      document.getElementById('progress-fill').style.width=displayP+'%';
+      const msgs=['🔍 Cartographie du périmètre...','📡 Sondes réseau déployées','🎯 Détection des signatures Nuclei...','⚡ Analyse des vulnérabilités en cours','🧠 L\'IA analyse les résultats...','📊 Génération du rapport...','📄 Compilation du PDF...','✨ Finalisation...'];
+      const idx=Math.min(Math.floor(p/12.5),msgs.length-1);
+      document.getElementById('scan-status-text').textContent=d.status==='done'?'✅ Audit terminé':d.status==='error'?'❌ Erreur':msgs[idx];
       if(d.status==='done'&&d.result){document.getElementById('scan-result').innerHTML='<div class="glass-card" style="border-color:rgba(34,197,94,0.4);"><h3 style="color:var(--success);">✅ Audit terminé</h3><p>'+d.result.hosts+' hôte(s) • '+d.result.vulns+' faille(s)</p><div class="btn-group" style="margin-top:12px;"><a class="btn btn-primary btn-sm" href="/api/reports/'+d.result.report_pdf.split('/').pop()+'" download>📄 Télécharger PDF</a><button class="btn btn-secondary btn-sm" onclick="resetScanForm()">🔁 Nouveau scan</button></div></div>';toast('Audit terminé !','success')}
       if(d.status==='error'){toast(d.error||'Erreur scan','error');resetScanForm()}};
     _ws.onerror=()=>{toast('Erreur WebSocket','error');resetScanForm()}
