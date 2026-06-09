@@ -549,7 +549,15 @@ async function generatePoC(){
 // ── ROI ────────────────────────────────────────────────────────────────
 async function loadROI(){
   try{const d=await fetch(API+'/api/roi').then(r=>r.json());
-  document.getElementById('roi-content').innerHTML='<div class="kpi-grid">'+Object.entries(d).map(([k,v])=>'<div class="kpi-card"><div class="kpi-icon">💰</div><div class="kpi-title">'+k+'</div><div class="kpi-value">'+v+'</div></div>').join('')+'</div>'
+  const m=d.applied_multipliers||{};
+  document.getElementById('roi-content').innerHTML=
+    '<div class="kpi-grid">'+
+    '<div class="kpi-card"><div class="kpi-icon">💥</div><div class="kpi-title">Exposition brute</div><div class="kpi-value">'+(d.total_exposure||0).toLocaleString()+' €</div></div>'+
+    '<div class="kpi-card"><div class="kpi-icon">🔧</div><div class="kpi-title">Coût remédiation</div><div class="kpi-value">'+(d.total_remediation||0).toLocaleString()+' €</div></div>'+
+    '<div class="kpi-card success"><div class="kpi-icon">💸</div><div class="kpi-title">Économies nettes</div><div class="kpi-value">'+(d.net_savings||0).toLocaleString()+' €</div></div>'+
+    '<div class="kpi-card"><div class="kpi-icon">📈</div><div class="kpi-title">ROI Cyber</div><div class="kpi-value">'+(d.roi_pct||0).toFixed(1)+'%</div></div>'+
+    '</div>'+
+    '<div class="glass-panel" style="margin-top:16px;"><strong>Multiplicateurs appliqués :</strong> Secteur x'+m.sector+' | Taille x'+m.size+' | Données x'+m.sensitivity+' | <b>Global x'+(m.overall||0).toFixed(1)+'</b></div>'
   }catch(e){document.getElementById('roi-content').innerHTML='<div class="empty-state"><div class="empty-state-icon">💰</div><div class="empty-state-title">Données ROI indisponibles</div></div>'}}
 
 // ── Schedules ──────────────────────────────────────────────────────────
