@@ -42,8 +42,9 @@
 ### 🔒 Sécurité & Conformité
 - **100% On-Premise** : aucune donnée ne quitte votre infrastructure
 - **RBAC** : rôles admin/client, gestion des utilisateurs
-- **Secrets protégés** : clés API isolées dans `report_config.json` (gitignoré)
+- **Secrets protégés** : les clés API et mots de passe ne quittent jamais votre machine
 - **Sondes authentifiées** : token Bearer, scans HTTP autorisés
+- **Pare-feu UFW** : ports contrôlés, SSH sécurisé
 
 ### 🎨 Interface
 - **SPA Vanilla JS** : zéro dépendance npm, < 700 lignes de HTML/CSS/JS
@@ -89,7 +90,6 @@
 ```bash
 git clone https://github.com/magasword22/sentient-ai.git
 cd sentient-ai
-touch audits.db report_config.json
 docker compose up --build -d
 # → http://localhost:8501
 ```

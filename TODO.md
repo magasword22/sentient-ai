@@ -45,7 +45,7 @@
 
 ### 🔒 Sécurité
 - ✅ RBAC : admin/client avec gestion des utilisateurs
-- ✅ Secrets protégés : `.gitignore` pour `report_config.json`, `audits.db`
+- ✅ Secrets : stockage local chiffré, aucune donnée ne quitte la machine
 - ✅ Pare-feu : règles UFW pour SSH + app
 
 ### 🎨 Interface

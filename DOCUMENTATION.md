@@ -67,7 +67,6 @@
 ```bash
 git clone https://github.com/magasword22/sentient-ai.git
 cd sentient-ai
-touch audits.db report_config.json
 docker compose up --build -d
 # → http://localhost:8501 (interface)
 # → http://localhost:11434 (Ollama)
@@ -349,8 +348,9 @@ Dans **Configuration** :
 ## 12. Sécurité
 
 ### Secrets
-- `report_config.json` — gitignoré, stocke les clés API et configuration
-- `audits.db` — gitignoré, historique des scans et utilisateurs
+- Les clés API et mots de passe sont chiffrés localement et ne quittent jamais la machine
+- Les données d'audit sont stockées en local uniquement
+- Aucune télémétrie ou donnée n'est envoyée à des tiers
 - Les clés API ne sont jamais loggées ni exposées dans les rapports
 
 ### Réseau
