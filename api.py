@@ -335,15 +335,63 @@ def get_compliance():
 @app.get("/api/roi")
 def get_roi():
     cfg = report_config.load_report_config()
-    return roi_calculator.calculate_roi_summary(
+    return roi_calculator.calculate_financial_risk(
+        vulns=[],
         sector=cfg.get("sector", "Finance"),
         company_size=cfg.get("company_size", "PME"),
         data_sensitivity=cfg.get("data_sensitivity", "PII"),
+        custom_breach_costs=cfg.get("custom_breach_costs"),
+        custom_remediation_costs=cfg.get("custom_remediation_costs"),
     )
 
 # ── Serve frontend SPA ───────────────────────────────────────────────────
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 os.makedirs(static_dir, exist_ok=True)
+
+# Serve assets from project root (logo, etc.)
+assets_dir = os.path.dirname(os.path.abspath(__file__))
+
+@app.get("/assets/{path:path}")
+async def serve_assets(path: str):
+    """Sert les fichiers du dossier assets/."""
+    file_path = os.path.join(assets_dir, "assets", path)
+    if os.path.isfile(file_path):
+        return FileResponse(file_path)
+    raise HTTPException(404)
+
+# ── PrivEsc endpoint ─────────────────────────────────────────────────────
+class PrivEscRequest(pydantic.BaseModel):
+    host: str
+    port: int = 22
+    username: str
+    password: str = ""
+    key_path: str = ""
+
+@app.post("/api/privesc")
+def run_privesc(req: PrivEscRequest):
+    """Lance un audit système LPE via SSH."""
+    try:
+        from host_auditor import run_remote_privesc_audit
+        result = run_remote_privesc_audit(req.host, req.username, req.password, req.key_path, req.port)
+        return {"status": "ok", "result": result}
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+# ── PoC generation endpoint ──────────────────────────────────────────────
+class PoCRequest(pydantic.BaseModel):
+    cve_id: str
+
+@app.post("/api/poc")
+def generate_poc(req: PoCRequest):
+    """Génère un guide de détection pour une CVE."""
+    try:
+        from agents import run_poc_generation_crew
+        result = run_poc_generation_crew(req.cve_id)
+        return {"status": "ok", "result": result}
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+# ── Serve frontend SPA (fallback) ─────────────────────────────────────────
 
 @app.get("/")
 @app.get("/{path:path}")
